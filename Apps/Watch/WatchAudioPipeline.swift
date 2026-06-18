@@ -1,29 +1,51 @@
 import AVFoundation
 import Foundation
+import os
 import WristAssistShared
 
 final class WatchAudioPipeline {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        category: "WatchAudioPipeline"
+    )
+
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let outputFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24_000, channels: 1, interleaved: false)!
-    private var onInputAudio: (@Sendable (String) -> Void)?
+    private let playbackQueue = DispatchQueue(label: "com.kwojt.WristAssist.watch.output-playback")
+    private var pendingOutputBuffers = 0
+    private var playedOutputFrames = 0
+    private var playbackGeneration = 0
+    private var outputPlaybackStartedAt: Date?
+    private var recentInputRMS: Float = 0
+    private var recentOutputRMS: Float = 0
+    private var lastInputMetricsLogAt = Date.distantPast
+    private var onInputAudio: (@Sendable (WatchInputAudioChunk) -> Void)?
+    private var onOutputPlaybackDrained: (@Sendable () -> Void)?
 
-    func start(onInputAudio: @escaping @Sendable (String) -> Void) async throws {
+    func start(
+        onInputAudio: @escaping @Sendable (WatchInputAudioChunk) -> Void,
+        onOutputPlaybackDrained: @escaping @Sendable () -> Void = {}
+    ) async throws {
         guard await requestRecordPermission() else {
             throw WatchAudioPipelineError.microphoneDenied
         }
 
         self.onInputAudio = onInputAudio
+        self.onOutputPlaybackDrained = onOutputPlaybackDrained
 
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .voiceChat)
         try session.setActive(true)
+        Self.logger.info("audio session active category=playAndRecord mode=voiceChat")
 
+        configureVoiceProcessing()
         configureOutput()
         try configureInput()
 
         try engine.start()
         playerNode.play()
+        Self.logger.info("audio engine started")
     }
 
     func enqueueOutputAudio(_ pcm16Data: Data) {
@@ -46,10 +68,71 @@ final class WatchAudioPipeline {
             }
         }
 
-        playerNode.scheduleBuffer(buffer)
+        let frameCount = Int(buffer.frameLength)
+        let outputRMS = Self.rootMeanSquare(samples)
+        let generation = playbackQueue.sync {
+            if pendingOutputBuffers == 0 {
+                outputPlaybackStartedAt = Date()
+                Self.logger.info("output playback started")
+            }
+            pendingOutputBuffers += 1
+            recentOutputRMS = max(recentOutputRMS * 0.8, outputRMS)
+            return playbackGeneration
+        }
+
+        playerNode.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            self?.markOutputBufferPlayed(frameCount: frameCount, generation: generation)
+        }
+
         if !playerNode.isPlaying {
             playerNode.play()
         }
+    }
+
+    func resetOutputPlaybackTracking() {
+        playbackQueue.sync {
+            playbackGeneration += 1
+            pendingOutputBuffers = 0
+            playedOutputFrames = 0
+            outputPlaybackStartedAt = nil
+            recentOutputRMS = 0
+            Self.logger.info("output tracking reset generation=\(self.playbackGeneration, privacy: .public)")
+        }
+    }
+
+    func shouldSuppressSpeechStartForLikelyEcho(minimumPlaybackMilliseconds: Int) -> Bool {
+        playbackQueue.sync {
+            guard pendingOutputBuffers > 0 || outputPlaybackStartedAt != nil else {
+                Self.logger.info("echo decision suppress=false reason=no_output_playback inputRMS=\(self.recentInputRMS, privacy: .public) outputRMS=\(self.recentOutputRMS, privacy: .public)")
+                return false
+            }
+
+            let playedMilliseconds = Int((Double(playedOutputFrames) / outputFormat.sampleRate) * 1_000)
+            if playedMilliseconds < minimumPlaybackMilliseconds {
+                Self.logger.info("echo decision suppress=true reason=guard_window playedMs=\(playedMilliseconds, privacy: .public) inputRMS=\(self.recentInputRMS, privacy: .public) outputRMS=\(self.recentOutputRMS, privacy: .public)")
+                return true
+            }
+
+            let minimumHumanSpeechRMS: Float = 0.035
+            let echoRelativeToOutputThreshold: Float = 0.65
+            let shouldSuppress = recentOutputRMS > 0.02
+                && recentInputRMS < max(minimumHumanSpeechRMS, recentOutputRMS * echoRelativeToOutputThreshold)
+            Self.logger.info("echo decision suppress=\(shouldSuppress, privacy: .public) reason=rms playedMs=\(playedMilliseconds, privacy: .public) inputRMS=\(self.recentInputRMS, privacy: .public) outputRMS=\(self.recentOutputRMS, privacy: .public)")
+            return shouldSuppress
+        }
+    }
+
+    func stopOutputPlaybackAndClearQueue() -> Int {
+        let audioEndMilliseconds = playedOutputMilliseconds()
+
+        playerNode.stop()
+        resetOutputPlaybackTracking()
+
+        if engine.isRunning {
+            playerNode.play()
+        }
+
+        return audioEndMilliseconds
     }
 
     func stop() {
@@ -57,7 +140,30 @@ final class WatchAudioPipeline {
         playerNode.stop()
         engine.stop()
         try? AVAudioSession.sharedInstance().setActive(false)
+        playbackQueue.sync {
+            playbackGeneration += 1
+            pendingOutputBuffers = 0
+            playedOutputFrames = 0
+            outputPlaybackStartedAt = nil
+            recentInputRMS = 0
+            recentOutputRMS = 0
+            lastInputMetricsLogAt = .distantPast
+        }
         onInputAudio = nil
+        onOutputPlaybackDrained = nil
+        Self.logger.info("audio pipeline stopped")
+    }
+
+    private func configureVoiceProcessing() {
+        do {
+            try engine.inputNode.setVoiceProcessingEnabled(true)
+            engine.inputNode.isVoiceProcessingBypassed = false
+            engine.inputNode.isVoiceProcessingAGCEnabled = true
+            Self.logger.info("voice processing enabled bypassed=\(self.engine.inputNode.isVoiceProcessingBypassed, privacy: .public) agc=\(self.engine.inputNode.isVoiceProcessingAGCEnabled, privacy: .public)")
+        } catch {
+            Self.logger.error("voice processing failed error=\(error.localizedDescription, privacy: .public)")
+            return
+        }
     }
 
     private func configureOutput() {
@@ -114,14 +220,98 @@ final class WatchAudioPipeline {
         }
 
         let samples = Array(UnsafeBufferPointer(start: channel, count: Int(converted.frameLength)))
+        let inputRMS = Self.rootMeanSquare(samples)
+        let metrics = playbackQueue.sync {
+            recentInputRMS = (recentInputRMS * 0.65) + (inputRMS * 0.35)
+            let now = Date()
+            let playedMilliseconds = Int((Double(playedOutputFrames) / outputFormat.sampleRate) * 1_000)
+            let isOutputPlaybackActive = pendingOutputBuffers > 0 || outputPlaybackStartedAt != nil
+            guard now.timeIntervalSince(lastInputMetricsLogAt) >= 0.5 else {
+                return (
+                    shouldLog: false,
+                    pending: pendingOutputBuffers,
+                    playedMs: playedMilliseconds,
+                    input: recentInputRMS,
+                    output: recentOutputRMS,
+                    isOutputPlaybackActive: isOutputPlaybackActive
+                )
+            }
+
+            lastInputMetricsLogAt = now
+            return (
+                shouldLog: true,
+                pending: pendingOutputBuffers,
+                playedMs: playedMilliseconds,
+                input: recentInputRMS,
+                output: recentOutputRMS,
+                isOutputPlaybackActive: isOutputPlaybackActive
+            )
+        }
+        if metrics.shouldLog {
+            Self.logger.info("input metrics inputRMS=\(metrics.input, privacy: .public) outputRMS=\(metrics.output, privacy: .public) pendingOutput=\(metrics.pending, privacy: .public) playedMs=\(metrics.playedMs, privacy: .public)")
+        }
         let base64Audio = PCM16AudioConverter.base64PCM16(fromFloat32Samples: samples)
-        onInputAudio?(base64Audio)
+        onInputAudio?(
+            WatchInputAudioChunk(
+                base64PCM16: base64Audio,
+                durationMilliseconds: Int((Double(converted.frameLength) / outputFormat.sampleRate) * 1_000),
+                inputRMS: metrics.input,
+                outputRMS: metrics.output,
+                outputPlayedMilliseconds: metrics.playedMs,
+                isOutputPlaybackActive: metrics.isOutputPlaybackActive
+            )
+        )
+    }
+
+    private func markOutputBufferPlayed(frameCount: Int, generation: Int) {
+        let didDrain = playbackQueue.sync {
+            guard generation == playbackGeneration else {
+                return false
+            }
+
+            if pendingOutputBuffers > 0 {
+                pendingOutputBuffers -= 1
+            }
+
+            playedOutputFrames += frameCount
+            let didDrain = pendingOutputBuffers == 0
+            if didDrain {
+                outputPlaybackStartedAt = nil
+                recentOutputRMS = 0
+                Self.logger.info("output playback drained playedMs=\(Int((Double(self.playedOutputFrames) / self.outputFormat.sampleRate) * 1_000), privacy: .public)")
+            }
+            return didDrain
+        }
+
+        if didDrain {
+            onOutputPlaybackDrained?()
+        }
+    }
+
+    private func playedOutputMilliseconds() -> Int {
+        playbackQueue.sync {
+            Int((Double(playedOutputFrames) / outputFormat.sampleRate) * 1_000)
+        }
+    }
+
+    private static func rootMeanSquare(_ samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        let sumOfSquares = samples.reduce(Double(0)) { partialResult, sample in
+            partialResult + Double(sample * sample)
+        }
+        return Float(sqrt(sumOfSquares / Double(samples.count)))
     }
 
     private func requestRecordPermission() async -> Bool {
         await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                continuation.resume(returning: granted)
+            if #available(watchOS 10.0, *) {
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
             }
         }
     }
@@ -139,4 +329,13 @@ enum WatchAudioPipelineError: LocalizedError, Equatable {
             return "Audio converter could not be created."
         }
     }
+}
+
+struct WatchInputAudioChunk: Sendable {
+    var base64PCM16: String
+    var durationMilliseconds: Int
+    var inputRMS: Float
+    var outputRMS: Float
+    var outputPlayedMilliseconds: Int
+    var isOutputPlaybackActive: Bool
 }

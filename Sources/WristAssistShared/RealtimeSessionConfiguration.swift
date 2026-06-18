@@ -73,7 +73,12 @@ public struct RealtimeAudioInput: Codable, Equatable, Sendable {
 
     public init(
         format: RealtimeAudioFormat = RealtimeAudioFormat(type: "audio/pcm", rate: 24_000),
-        turnDetection: RealtimeTurnDetection = RealtimeTurnDetection(type: "semantic_vad")
+        turnDetection: RealtimeTurnDetection = RealtimeTurnDetection(
+            type: "semantic_vad",
+            eagerness: "low",
+            createResponse: true,
+            interruptResponse: false
+        )
     ) {
         self.format = format
         self.turnDetection = turnDetection
@@ -110,21 +115,25 @@ public struct RealtimeAudioFormat: Codable, Equatable, Sendable {
 
 public struct RealtimeTurnDetection: Codable, Equatable, Sendable {
     public var type: String
+    public var eagerness: String?
     public var createResponse: Bool?
     public var interruptResponse: Bool?
 
     public init(
         type: String,
+        eagerness: String? = nil,
         createResponse: Bool? = nil,
         interruptResponse: Bool? = nil
     ) {
         self.type = type
+        self.eagerness = eagerness
         self.createResponse = createResponse
         self.interruptResponse = interruptResponse
     }
 
     enum CodingKeys: String, CodingKey {
         case type
+        case eagerness
         case createResponse = "create_response"
         case interruptResponse = "interrupt_response"
     }

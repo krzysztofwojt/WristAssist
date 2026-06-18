@@ -32,9 +32,20 @@ private func testMessageRoundTrip() throws {
 }
 
 private func testServerEventDecoding() throws {
-    let data = #"{"type":"response.audio.delta","delta":"YWJj"}"#.data(using: .utf8)!
+    let data = #"{"type":"response.output_audio.delta","delta":"YWJj","item_id":"item_123","response_id":"resp_123","content_index":0}"#.data(using: .utf8)!
     let event = try RealtimeServerEvent(data: data)
-    try require(event == .audioDelta("YWJj"))
+    try require(
+        event == .audioDelta(
+            RealtimeOutputAudioDelta(
+                base64Audio: "YWJj",
+                metadata: RealtimeOutputAudioMetadata(
+                    itemID: "item_123",
+                    responseID: "resp_123",
+                    contentIndex: 0
+                )
+            )
+        )
+    )
 }
 
 private func testPCM16Conversion() {

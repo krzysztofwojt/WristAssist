@@ -28,6 +28,11 @@ struct RealtimeClientEventTests {
         let inputFormat = try #require(input["format"] as? [String: Any])
         #expect(inputFormat["type"] as? String == "audio/pcm")
         #expect(inputFormat["rate"] as? Int == 24_000)
+        let turnDetection = try #require(input["turn_detection"] as? [String: Any])
+        #expect(turnDetection["type"] as? String == "semantic_vad")
+        #expect(turnDetection["eagerness"] as? String == "low")
+        #expect(turnDetection["create_response"] as? Bool == true)
+        #expect(turnDetection["interrupt_response"] as? Bool == false)
 
         let output = try #require(audio["output"] as? [String: Any])
         let outputFormat = try #require(output["format"] as? [String: Any])
@@ -42,5 +47,32 @@ struct RealtimeClientEventTests {
 
         #expect(object["type"] as? String == "input_audio_buffer.append")
         #expect(object["audio"] as? String == "abc123")
+    }
+
+    @Test func clearInputAudioEncodesClearEvent() throws {
+        let data = try RealtimeClientEvent.clearInputAudio.encodedData()
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["type"] as? String == "input_audio_buffer.clear")
+    }
+
+    @Test func cancelResponseEncodesOptionalResponseID() throws {
+        let data = try RealtimeClientEvent.cancelResponse(responseID: "resp_123").encodedData()
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["type"] as? String == "response.cancel")
+        #expect(object["response_id"] as? String == "resp_123")
+    }
+
+    @Test func truncateConversationItemEncodesPlaybackPosition() throws {
+        let data = try RealtimeClientEvent
+            .truncateConversationItem(itemID: "item_123", contentIndex: 0, audioEndMilliseconds: 420)
+            .encodedData()
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["type"] as? String == "conversation.item.truncate")
+        #expect(object["item_id"] as? String == "item_123")
+        #expect(object["content_index"] as? Int == 0)
+        #expect(object["audio_end_ms"] as? Int == 420)
     }
 }

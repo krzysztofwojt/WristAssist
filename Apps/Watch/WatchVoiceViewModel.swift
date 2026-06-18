@@ -1,9 +1,19 @@
 import Foundation
+import os
 import Security
 import WristAssistShared
 
 @MainActor
 final class WatchVoiceViewModel: ObservableObject {
+    private static let localBargeInGuardMilliseconds = 350
+    private static let localBargeInMinimumSpeechMilliseconds = 180
+    private static let localBargeInMinimumInputRMS: Float = 0.014
+    private static let localBargeInOutputRelativeThreshold: Float = 0.25
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        category: "WatchVoiceViewModel"
+    )
+
     @Published private(set) var state: RealtimeConnectionState
     @Published private(set) var settings: ProviderSettings
     @Published private(set) var errorMessage: String?
@@ -30,6 +40,12 @@ final class WatchVoiceViewModel: ObservableObject {
     private var realtimeClient: RealtimeWebSocketClient?
     private var audioPipeline: WatchAudioPipeline?
     private var apiKey: String?
+    private var isAssistantResponseActive = false
+    private var hasPendingAssistantPlayback = false
+    private var activeAssistantOutput: ActiveAssistantOutput?
+    private var interruptedAssistantOutputs = Set<ActiveAssistantOutput>()
+    private var localBargeInSpeechMilliseconds = 0
+    private var suppressedInputChunkCount = 0
 
     init() {
         let configurationStore = WatchConfigurationStore()
@@ -76,16 +92,19 @@ final class WatchVoiceViewModel: ObservableObject {
         guard let apiKey, !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             state = .idle
             errorMessage = nil
+            Self.logger.info("start ignored reason=missing_api_key")
             return
         }
 
         do {
             errorMessage = nil
             state = .connecting
+            Self.logger.info("conversation start state=connecting model=\(self.settings.model, privacy: .public) voice=\(self.settings.voice, privacy: .public)")
             try? await connectivity.reportState(state)
 
             let client = RealtimeWebSocketClient()
             let pipeline = WatchAudioPipeline()
+            resetAssistantOutputState()
 
             try await client.connect(
                 token: apiKey,
@@ -95,38 +114,50 @@ final class WatchVoiceViewModel: ObservableObject {
                         self?.handle(event)
                     }
                 },
-                audioHandler: { data in
+                audioHandler: { [weak self] audioDelta, data in
                     Task { @MainActor in
-                        pipeline.enqueueOutputAudio(data)
+                        self?.handleOutputAudio(audioDelta, data: data, pipeline: pipeline)
                     }
                 }
             )
 
-            try await pipeline.start { base64Audio in
-                Task {
-                    try? await client.sendInputAudio(base64PCM16: base64Audio)
+            try await pipeline.start(
+                onInputAudio: { [weak self] chunk in
+                    Task { @MainActor in
+                        await self?.handleInputAudio(chunk, client: client)
+                    }
+                },
+                onOutputPlaybackDrained: { [weak self] in
+                    Task { @MainActor in
+                        self?.handleOutputPlaybackDrained()
+                    }
                 }
-            }
+            )
 
             realtimeClient = client
             audioPipeline = pipeline
             state = .listening
+            Self.logger.info("conversation ready state=listening")
             try? await connectivity.reportState(state)
         } catch {
             await stop()
             state = .failed
             errorMessage = error.localizedDescription
+            Self.logger.error("conversation failed error=\(error.localizedDescription, privacy: .public)")
             try? await connectivity.reportState(state)
         }
     }
 
     private func stop() async {
+        Self.logger.info("conversation stop requested state=\(self.state.rawValue, privacy: .public)")
         state = .stopping
+        resetAssistantOutputState()
         audioPipeline?.stop()
         audioPipeline = nil
         await realtimeClient?.stop()
         realtimeClient = nil
         state = .idle
+        Self.logger.info("conversation stopped state=idle")
         try? await connectivity.reportState(state)
     }
 
@@ -163,26 +194,276 @@ final class WatchVoiceViewModel: ObservableObject {
     }
 
     private func handle(_ event: RealtimeServerEvent) {
+        let stateBefore = state
+        logEvent(event, state: stateBefore)
+
         switch event {
         case .sessionCreated:
             state = .listening
         case .inputSpeechStarted:
-            state = .listening
+            if isAssistantResponseActive || hasPendingAssistantPlayback {
+                Self.logger.info("decision=clear_server_speech_started_during_assistant activeResponse=\(self.isAssistantResponseActive, privacy: .public) pendingPlayback=\(self.hasPendingAssistantPlayback, privacy: .public)")
+                clearLikelyEchoInput()
+                state = .speaking
+            } else {
+                state = .listening
+            }
         case .inputSpeechStopped:
             break
         case .responseCreated:
+            isAssistantResponseActive = true
             state = .speaking
-        case .responseDone, .audioDone:
-            state = .listening
+        case .responseDone:
+            isAssistantResponseActive = false
+            finishAssistantOutputIfReady()
+        case .audioDone:
+            finishAssistantOutputIfReady()
         case .audioDelta:
+            isAssistantResponseActive = true
+            hasPendingAssistantPlayback = true
             state = .speaking
         case .error(let message):
+            guard !isRecoverableRealtimeError(message) else {
+                Self.logger.info("server recoverable_error ignored message=\(message, privacy: .public)")
+                return
+            }
             state = .failed
             errorMessage = message
         case .unknown:
             break
         }
+
+        if state != stateBefore {
+            Self.logger.info("state transition \(stateBefore.rawValue, privacy: .public) -> \(self.state.rawValue, privacy: .public) after=\(self.eventName(event), privacy: .public)")
+        }
     }
+
+    private func handleInputAudio(
+        _ chunk: WatchInputAudioChunk,
+        client: RealtimeWebSocketClient
+    ) async {
+        if shouldForwardInputAudioToRealtime {
+            resetLocalInputRoutingState()
+            try? await client.sendInputAudio(base64PCM16: chunk.base64PCM16)
+            return
+        }
+
+        suppressedInputChunkCount += 1
+        if suppressedInputChunkCount == 1 || suppressedInputChunkCount.isMultiple(of: 25) {
+            Self.logger.debug("suppress input during assistant count=\(self.suppressedInputChunkCount, privacy: .public) inputRMS=\(chunk.inputRMS, privacy: .public) outputRMS=\(chunk.outputRMS, privacy: .public) outputPlayedMs=\(chunk.outputPlayedMilliseconds, privacy: .public)")
+        }
+
+        guard shouldTriggerLocalBargeIn(with: chunk) else {
+            return
+        }
+
+        Self.logger.info("decision=local_barge_in inputRMS=\(chunk.inputRMS, privacy: .public) outputRMS=\(chunk.outputRMS, privacy: .public) speechMs=\(self.localBargeInSpeechMilliseconds, privacy: .public) outputPlayedMs=\(chunk.outputPlayedMilliseconds, privacy: .public)")
+        await handleBargeIn(client: client, firstInputChunk: chunk)
+    }
+
+    private func handleOutputAudio(
+        _ audioDelta: RealtimeOutputAudioDelta,
+        data: Data,
+        pipeline: WatchAudioPipeline
+    ) {
+        guard !isInterruptedOutput(audioDelta.metadata) else {
+            return
+        }
+
+        updateActiveAssistantOutput(with: audioDelta, pipeline: pipeline)
+        isAssistantResponseActive = true
+        hasPendingAssistantPlayback = true
+        state = .speaking
+        Self.logger.debug("enqueue output audio responseID=\(audioDelta.metadata.responseID ?? "nil", privacy: .public) itemID=\(audioDelta.metadata.itemID ?? "nil", privacy: .public) bytes=\(data.count, privacy: .public)")
+        pipeline.enqueueOutputAudio(data)
+    }
+
+    private func handleOutputPlaybackDrained() {
+        Self.logger.info("output playback drained activeResponse=\(self.isAssistantResponseActive, privacy: .public)")
+        hasPendingAssistantPlayback = false
+        finishAssistantOutputIfReady()
+    }
+
+    private func handleBargeIn(
+        client: RealtimeWebSocketClient,
+        firstInputChunk: WatchInputAudioChunk
+    ) async {
+        let interruptedOutput = activeAssistantOutput
+        let shouldCancelResponse = isAssistantResponseActive
+        let audioEndMilliseconds = audioPipeline?.stopOutputPlaybackAndClearQueue() ?? 0
+
+        Self.logger.info("barge_in handling responseID=\(interruptedOutput?.responseID ?? "nil", privacy: .public) itemID=\(interruptedOutput?.itemID ?? "nil", privacy: .public) shouldCancel=\(shouldCancelResponse, privacy: .public) audioEndMs=\(audioEndMilliseconds, privacy: .public)")
+
+        if let interruptedOutput {
+            interruptedAssistantOutputs.insert(interruptedOutput)
+        }
+
+        isAssistantResponseActive = false
+        hasPendingAssistantPlayback = false
+        activeAssistantOutput = nil
+        resetLocalInputRoutingState()
+        state = .listening
+
+        try? await client.clearInputAudio()
+
+        if shouldCancelResponse {
+            try? await client.cancelResponse(responseID: interruptedOutput?.responseID)
+        }
+
+        if let interruptedOutput {
+            try? await client.truncateConversationItem(
+                itemID: interruptedOutput.itemID,
+                contentIndex: interruptedOutput.contentIndex,
+                audioEndMilliseconds: audioEndMilliseconds
+            )
+        }
+
+        try? await client.sendInputAudio(base64PCM16: firstInputChunk.base64PCM16)
+    }
+
+    private func clearLikelyEchoInput() {
+        guard let realtimeClient else { return }
+        Self.logger.info("clear likely echo input")
+        Task {
+            try? await realtimeClient.clearInputAudio()
+        }
+    }
+
+    private func updateActiveAssistantOutput(
+        with audioDelta: RealtimeOutputAudioDelta,
+        pipeline: WatchAudioPipeline
+    ) {
+        guard let itemID = audioDelta.metadata.itemID else {
+            return
+        }
+
+        let nextOutput = ActiveAssistantOutput(
+            itemID: itemID,
+            responseID: audioDelta.metadata.responseID,
+            contentIndex: audioDelta.metadata.contentIndex
+        )
+
+        if nextOutput != activeAssistantOutput {
+            Self.logger.info("active output changed itemID=\(nextOutput.itemID, privacy: .public) responseID=\(nextOutput.responseID ?? "nil", privacy: .public) contentIndex=\(nextOutput.contentIndex, privacy: .public)")
+            activeAssistantOutput = nextOutput
+            pipeline.resetOutputPlaybackTracking()
+        }
+    }
+
+    private func finishAssistantOutputIfReady() {
+        if isAssistantResponseActive || hasPendingAssistantPlayback {
+            state = .speaking
+            Self.logger.info("finish output deferred activeResponse=\(self.isAssistantResponseActive, privacy: .public) pendingPlayback=\(self.hasPendingAssistantPlayback, privacy: .public)")
+        } else if state != .failed && state != .idle && state != .stopping {
+            state = .listening
+            Self.logger.info("finish output complete state=listening")
+            activeAssistantOutput = nil
+        }
+    }
+
+    private func resetAssistantOutputState() {
+        isAssistantResponseActive = false
+        hasPendingAssistantPlayback = false
+        activeAssistantOutput = nil
+        interruptedAssistantOutputs.removeAll()
+        resetLocalInputRoutingState()
+    }
+
+    private func isInterruptedOutput(_ metadata: RealtimeOutputAudioMetadata) -> Bool {
+        guard let itemID = metadata.itemID else {
+            return false
+        }
+
+        return interruptedAssistantOutputs.contains(
+            ActiveAssistantOutput(
+                itemID: itemID,
+                responseID: metadata.responseID,
+                contentIndex: metadata.contentIndex
+            )
+        )
+    }
+
+    private func isRecoverableRealtimeError(_ message: String) -> Bool {
+        let normalizedMessage = message.lowercased()
+        return normalizedMessage.contains("cancellation failed")
+            && normalizedMessage.contains("no active response found")
+    }
+
+    private var shouldForwardInputAudioToRealtime: Bool {
+        !isAssistantResponseActive && !hasPendingAssistantPlayback
+    }
+
+    private func shouldTriggerLocalBargeIn(with chunk: WatchInputAudioChunk) -> Bool {
+        guard isAssistantResponseActive || hasPendingAssistantPlayback else {
+            resetLocalInputRoutingState()
+            return false
+        }
+
+        if chunk.isOutputPlaybackActive && chunk.outputPlayedMilliseconds < Self.localBargeInGuardMilliseconds {
+            localBargeInSpeechMilliseconds = 0
+            return false
+        }
+
+        let threshold = max(
+            Self.localBargeInMinimumInputRMS,
+            chunk.outputRMS * Self.localBargeInOutputRelativeThreshold
+        )
+
+        guard chunk.inputRMS >= threshold else {
+            localBargeInSpeechMilliseconds = 0
+            return false
+        }
+
+        localBargeInSpeechMilliseconds += max(chunk.durationMilliseconds, 0)
+        return localBargeInSpeechMilliseconds >= Self.localBargeInMinimumSpeechMilliseconds
+    }
+
+    private func resetLocalInputRoutingState() {
+        localBargeInSpeechMilliseconds = 0
+        suppressedInputChunkCount = 0
+    }
+
+    private func logEvent(_ event: RealtimeServerEvent, state: RealtimeConnectionState) {
+        if case .audioDelta = event {
+            return
+        }
+
+        if case .unknown(let type) = event,
+           type == "response.output_audio_transcript.delta" {
+            return
+        }
+
+        Self.logger.info("handle event=\(self.eventName(event), privacy: .public) state=\(state.rawValue, privacy: .public) activeResponse=\(self.isAssistantResponseActive, privacy: .public) pendingPlayback=\(self.hasPendingAssistantPlayback, privacy: .public)")
+    }
+
+    private func eventName(_ event: RealtimeServerEvent) -> String {
+        switch event {
+        case .sessionCreated:
+            return "session.created"
+        case .inputSpeechStarted:
+            return "input_audio_buffer.speech_started"
+        case .inputSpeechStopped:
+            return "input_audio_buffer.speech_stopped"
+        case .responseCreated:
+            return "response.created"
+        case .responseDone:
+            return "response.done"
+        case .audioDelta:
+            return "response.output_audio.delta"
+        case .audioDone:
+            return "response.output_audio.done"
+        case .error:
+            return "error"
+        case .unknown(let type):
+            return type
+        }
+    }
+}
+
+private struct ActiveAssistantOutput: Hashable {
+    var itemID: String
+    var responseID: String?
+    var contentIndex: Int
 }
 
 private struct WatchConfigurationStore {

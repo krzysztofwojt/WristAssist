@@ -1,20 +1,27 @@
 import Foundation
+import os
 import WristAssistShared
 
 actor RealtimeWebSocketClient {
     private static let startupTimeoutNanoseconds: UInt64 = 8_000_000_000
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        category: "RealtimeWebSocket"
+    )
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var eventHandler: (@Sendable (RealtimeServerEvent) -> Void)?
-    private var audioHandler: (@Sendable (Data) -> Void)?
+    private var audioHandler: (@Sendable (RealtimeOutputAudioDelta, Data) -> Void)?
     private var didTimeoutDuringStartup = false
+    private var sentInputAudioChunkCount = 0
+    private var receivedAudioDeltaCount = 0
 
     func connect(
         token: String,
         settings: ProviderSettings,
         eventHandler: @escaping @Sendable (RealtimeServerEvent) -> Void,
-        audioHandler: @escaping @Sendable (Data) -> Void
+        audioHandler: @escaping @Sendable (RealtimeOutputAudioDelta, Data) -> Void
     ) async throws {
         self.eventHandler = eventHandler
         self.audioHandler = audioHandler
@@ -28,6 +35,8 @@ actor RealtimeWebSocketClient {
             throw RealtimeWebSocketError.invalidURL
         }
 
+        Self.logger.info("connect start model=\(settings.model, privacy: .public) voice=\(settings.voice, privacy: .public)")
+
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
@@ -39,10 +48,12 @@ actor RealtimeWebSocketClient {
             try await send(.sessionUpdate(RealtimeSession(settings: settings)))
             try await waitForSessionCreated()
         } catch {
+            Self.logger.error("connect failed error=\(error.localizedDescription, privacy: .public)")
             stop()
             throw error
         }
 
+        Self.logger.info("connect ready")
         receiveTask = Task { [weak self] in
             await self?.receiveLoop()
         }
@@ -50,16 +61,48 @@ actor RealtimeWebSocketClient {
 
     func sendInputAudio(base64PCM16: String) async throws {
         guard !base64PCM16.isEmpty else { return }
+        sentInputAudioChunkCount += 1
+        if sentInputAudioChunkCount == 1 || sentInputAudioChunkCount.isMultiple(of: 25) {
+            Self.logger.debug("client -> input_audio_buffer.append count=\(self.sentInputAudioChunkCount, privacy: .public) bytes64=\(base64PCM16.count, privacy: .public)")
+        }
         try await send(.appendInputAudio(base64PCM16: base64PCM16))
     }
 
+    func clearInputAudio() async throws {
+        Self.logger.info("client -> input_audio_buffer.clear")
+        try await send(.clearInputAudio)
+    }
+
+    func cancelResponse(responseID: String?) async throws {
+        Self.logger.info("client -> response.cancel responseID=\(responseID ?? "nil", privacy: .public)")
+        try await send(.cancelResponse(responseID: responseID))
+    }
+
+    func truncateConversationItem(
+        itemID: String,
+        contentIndex: Int,
+        audioEndMilliseconds: Int
+    ) async throws {
+        Self.logger.info("client -> conversation.item.truncate itemID=\(itemID, privacy: .public) contentIndex=\(contentIndex, privacy: .public) audioEndMs=\(audioEndMilliseconds, privacy: .public)")
+        try await send(
+            .truncateConversationItem(
+                itemID: itemID,
+                contentIndex: contentIndex,
+                audioEndMilliseconds: audioEndMilliseconds
+            )
+        )
+    }
+
     func stop() {
+        Self.logger.info("stop websocket")
         receiveTask?.cancel()
         receiveTask = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         eventHandler = nil
         audioHandler = nil
+        sentInputAudioChunkCount = 0
+        receivedAudioDeltaCount = 0
     }
 
     private func send(_ event: RealtimeClientEvent) async throws {
@@ -81,6 +124,7 @@ actor RealtimeWebSocketClient {
                 dispatch(try await receiveEvent())
             } catch {
                 guard !Task.isCancelled else { return }
+                Self.logger.error("receiveLoop failed error=\(error.localizedDescription, privacy: .public)")
                 dispatch(.error(error.localizedDescription))
                 return
             }
@@ -107,8 +151,10 @@ actor RealtimeWebSocketClient {
                 let event = try await receiveEvent()
                 switch event {
                 case .sessionCreated:
+                    Self.logger.info("server -> session.created")
                     return
                 case .error(let message):
+                    Self.logger.error("server -> error during startup message=\(message, privacy: .public)")
                     throw RealtimeWebSocketError.serverError(message)
                 case .unknown:
                     continue
@@ -152,12 +198,44 @@ actor RealtimeWebSocketClient {
     }
 
     private func dispatch(_ event: RealtimeServerEvent) {
-        if case .audioDelta(let base64Audio) = event,
-           let data = Data(base64Encoded: base64Audio) {
-            audioHandler?(data)
+        if case .audioDelta(let audioDelta) = event,
+           let data = Data(base64Encoded: audioDelta.base64Audio) {
+            receivedAudioDeltaCount += 1
+            if receivedAudioDeltaCount == 1 || receivedAudioDeltaCount.isMultiple(of: 20) {
+                Self.logger.debug("server -> audio.delta count=\(self.receivedAudioDeltaCount, privacy: .public) responseID=\(audioDelta.metadata.responseID ?? "nil", privacy: .public) itemID=\(audioDelta.metadata.itemID ?? "nil", privacy: .public) bytes=\(data.count, privacy: .public)")
+            }
+            audioHandler?(audioDelta, data)
+        } else {
+            logServerEvent(event)
         }
 
         eventHandler?(event)
+    }
+
+    private func logServerEvent(_ event: RealtimeServerEvent) {
+        switch event {
+        case .sessionCreated:
+            Self.logger.info("server -> session.created")
+        case .inputSpeechStarted:
+            Self.logger.info("server -> input_audio_buffer.speech_started")
+        case .inputSpeechStopped:
+            Self.logger.info("server -> input_audio_buffer.speech_stopped")
+        case .responseCreated:
+            Self.logger.info("server -> response.created")
+        case .responseDone:
+            Self.logger.info("server -> response.done")
+        case .audioDone(let metadata):
+            Self.logger.info("server -> audio.done responseID=\(metadata.responseID ?? "nil", privacy: .public) itemID=\(metadata.itemID ?? "nil", privacy: .public)")
+        case .audioDelta:
+            break
+        case .error(let message):
+            Self.logger.error("server -> error message=\(message, privacy: .public)")
+        case .unknown(let type):
+            guard type != "response.output_audio_transcript.delta" else {
+                return
+            }
+            Self.logger.debug("server -> unknown type=\(type, privacy: .public)")
+        }
     }
 }
 
