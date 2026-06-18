@@ -484,14 +484,37 @@ final class WatchVoiceViewModel: ObservableObject {
         do {
             Self.logger.info("ptt recording commit chunks=\(chunkCount, privacy: .public) durationMs=\(durationMilliseconds, privacy: .public)")
             try await realtimeClient.commitInputAudio()
+            guard isCurrentRealtimeClient(realtimeClient) else {
+                Self.logger.info("ptt commit completion ignored reason=stale_client step=commit")
+                return
+            }
+
             try await realtimeClient.createResponse()
+            guard isCurrentRealtimeClient(realtimeClient) else {
+                Self.logger.info("ptt commit completion ignored reason=stale_client step=create_response")
+                return
+            }
+
             state = .speaking
         } catch {
+            guard isCurrentRealtimeClient(realtimeClient) else {
+                Self.logger.info("ptt commit error ignored reason=stale_client error=\(error.localizedDescription, privacy: .public)")
+                return
+            }
+
             state = .failed
             errorMessage = error.localizedDescription
             Self.logger.error("ptt commit failed error=\(error.localizedDescription, privacy: .public)")
             try? await connectivity.reportState(state)
         }
+    }
+
+    private func isCurrentRealtimeClient(_ client: RealtimeWebSocketClient) -> Bool {
+        guard let currentClient = realtimeClient else {
+            return false
+        }
+
+        return client === currentClient
     }
 
     private func clearLikelyEchoInput() {
