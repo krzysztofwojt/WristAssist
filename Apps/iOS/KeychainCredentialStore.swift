@@ -8,21 +8,8 @@ struct KeychainCredentialStore: APIKeyStore {
     private let account = "openai-api-key"
 
     func saveAPIKey(_ apiKey: String) throws {
-        let data = Data(apiKey.utf8)
-        try deleteAPIKey(ignoringMissing: true, services: allServices)
-
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        ]
-
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw KeychainError.unhandledStatus(status)
-        }
+        try upsertAPIKey(apiKey, service: service)
+        try deleteAPIKey(ignoringMissing: true, services: legacyServices)
     }
 
     func loadAPIKey() throws -> String? {
@@ -83,6 +70,37 @@ struct KeychainCredentialStore: APIKeyStore {
         }
 
         return apiKey
+    }
+
+    private func upsertAPIKey(_ apiKey: String, service: String) throws {
+        let data = Data(apiKey.utf8)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        let update: [String: Any] = [
+            kSecValueData as String: data
+        ]
+
+        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if updateStatus == errSecSuccess {
+            return
+        }
+
+        guard updateStatus == errSecItemNotFound else {
+            throw KeychainError.unhandledStatus(updateStatus)
+        }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        guard addStatus == errSecSuccess else {
+            throw KeychainError.unhandledStatus(addStatus)
+        }
     }
 
     private func deleteAPIKey(ignoringMissing: Bool, services: [String]) throws {

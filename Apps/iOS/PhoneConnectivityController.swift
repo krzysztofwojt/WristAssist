@@ -88,6 +88,14 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         )
     }
 
+    @discardableResult
+    func sendMissingAPIKeyStatusToWatch() -> Bool {
+        sendMessageToReachableWatch(
+            .keyStatusResponse(hasKey: false),
+            unavailableStatus: "Open WristAssist on Apple Watch to refresh API key status."
+        )
+    }
+
     func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
@@ -241,7 +249,10 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
                 if let apiKey = try apiKeyProvider(),
                    !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     syncAPIKeyToWatch(apiKey)
+                    return
                 }
+
+                sendMissingAPIKeyStatusToWatch()
             } catch {
                 await MainActor.run {
                     errorHandler(error.localizedDescription)
