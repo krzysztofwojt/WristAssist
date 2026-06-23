@@ -5,6 +5,8 @@ struct WatchContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = WatchVoiceViewModel()
     private let bottomID = "chat-bottom"
+    private let chatBottomReadableInset: CGFloat = 78
+    private let chatAccentColor = Color(red: 0.07, green: 0.46, blue: 1)
 
     var body: some View {
         ZStack {
@@ -54,7 +56,7 @@ struct WatchContentView: View {
                         }
 
                         Color.clear
-                            .frame(height: 1)
+                            .frame(height: chatBottomReadableInset)
                             .id(bottomID)
                     }
                     .padding(.horizontal, 8)
@@ -71,8 +73,12 @@ struct WatchContentView: View {
                     scrollToBottom(proxy)
                 }
 
+                topReadableGradient
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
+
                 pushToTalkMicrophoneButton
-                    .padding(.trailing, 8)
+                    .padding(.trailing, 18)
                     .padding(.bottom, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -89,12 +95,12 @@ struct WatchContentView: View {
             Text(message.text)
                 .font(.system(size: 13, weight: .medium))
                 .lineSpacing(1)
-                .foregroundStyle(message.role == .user ? Color.black : Color.white)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.leading)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 7)
-                .frame(maxWidth: 136, alignment: .leading)
-                .background(message.role == .user ? Color.green : Color.white.opacity(0.14))
+                .frame(maxWidth: 170, alignment: .leading)
+                .background(message.role == .user ? chatAccentColor : Color.white.opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             if message.role == .assistant {
@@ -104,17 +110,31 @@ struct WatchContentView: View {
         .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
     }
 
+    private var topReadableGradient: some View {
+        LinearGradient(
+            colors: [
+                Color.black.opacity(0.9),
+                Color.black.opacity(0.52),
+                Color.black.opacity(0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 56)
+        .ignoresSafeArea(.container, edges: .top)
+    }
+
     private var pushToTalkMicrophoneButton: some View {
         Image(systemName: "mic.fill")
-            .font(.system(size: 24, weight: .semibold))
-            .frame(width: 52, height: 52)
+            .font(.system(size: 22, weight: .semibold))
+            .frame(width: 66, height: 44)
             .background(microphoneButtonColor)
             .foregroundStyle(.white)
-            .clipShape(Circle())
+            .clipShape(Capsule(style: .continuous))
             .scaleEffect(viewModel.isPushToTalkRecording ? 1.08 : 1)
             .shadow(color: .black.opacity(0.35), radius: 8, x: 0, y: 3)
             .animation(.easeInOut(duration: 0.14), value: viewModel.isPushToTalkRecording)
-            .contentShape(Circle())
+            .contentShape(Capsule(style: .continuous))
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
@@ -138,7 +158,7 @@ struct WatchContentView: View {
             return Color.white.opacity(0.2)
         }
 
-        return .green.opacity(0.9)
+        return chatAccentColor
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
