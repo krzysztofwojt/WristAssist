@@ -171,14 +171,28 @@ public enum OpenAIMockResponses {
         let firstCitedFragment = "latest OpenAI product news"
         let secondCitedFragment = "Warsaw weather alerts for Thursday"
         let text = """
-        **Mock web answer \(turnNumber)**
+        ## Mock web answer \(turnNumber)
 
-        Today we verify **bold**, *italic*, `inline code`, and a markdown link to [OpenAI News](https://openai.com/news).
+        Today we verify **bold**, __strong__, *italic*, _emphasis_, ***bold italic***, ~~strikethrough~~, `inline code`, escaped \\*literal asterisks\\*, and a markdown link to [OpenAI News](https://openai.com/news).
 
         URL citation #1 should underline only this visible fragment: \(firstCitedFragment).
 
+        1. Ordered item with <https://openai.com/news> as an autolink.
+        2. Image markdown should display alt text only: ![OpenAI logo](https://openai.com/favicon.ico).
         - **Markets:** a bullet with [Apple Developer watchOS docs](https://developer.apple.com/watchos/) and no raw URL.
         - _Weather:_ second citation target is \(secondCitedFragment).
+        - [x] Task list checked.
+        - [ ] Task list unchecked.
+
+        ```swift
+        let sourceCount = 4
+        ```
+
+        ---
+
+        | Format | Status |
+        |---|---|
+        | Link | Hidden URL |
 
         > Blockquote text stays compact on watchOS, and the source action should open on iPhone.
         """

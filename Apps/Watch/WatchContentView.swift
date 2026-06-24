@@ -238,7 +238,20 @@ struct WatchContentView: View {
 
     @ViewBuilder
     private func messageTextSegment(_ segment: RenderedMessageSegment) -> some View {
-        if segment.isBlockquote {
+        switch segment.kind {
+        case .body:
+            Text(segment.text)
+                .font(.system(size: 13, weight: .medium))
+                .lineSpacing(1)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+        case .heading:
+            Text(segment.text)
+                .font(.system(size: 14, weight: .semibold))
+                .lineSpacing(1)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+        case .blockquote:
             Text(segment.text)
                 .font(.system(size: 13, weight: .medium))
                 .lineSpacing(1)
@@ -249,12 +262,22 @@ struct WatchContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.white.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        } else {
+        case .codeBlock:
             Text(segment.text)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .lineSpacing(1)
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        case .horizontalRule:
+            Rectangle()
+                .fill(Color.white.opacity(0.24))
+                .frame(height: 1)
+                .padding(.vertical, 3)
         }
     }
 
@@ -304,25 +327,67 @@ struct WatchContentView: View {
 
     private func watchDisplayMarkdownSegments(from text: String) -> [WatchDisplayMarkdownSegment] {
         var segments: [WatchDisplayMarkdownSegment] = []
+        var codeBlockLines: [String] = []
+        var isInsideCodeBlock = false
 
-        text
-            .split(separator: "\n", omittingEmptySubsequences: false)
-            .map { watchDisplayMarkdownLine(from: Substring($0)) }
-            .forEach { line in
-                if let lastSegment = segments.last,
-                   lastSegment.isBlockquote == line.isBlockquote {
-                    segments[segments.count - 1].markdown += "\n\(line.markdown)"
-                } else {
-                    segments.append(
-                        WatchDisplayMarkdownSegment(
-                            markdown: line.markdown,
-                            isBlockquote: line.isBlockquote
-                        )
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            if isInsideCodeBlock {
+                if isMarkdownCodeFence(line) {
+                    appendDisplayMarkdownSegment(
+                        markdown: markdownEscapedPlainText(codeBlockLines.joined(separator: "\n")),
+                        kind: .codeBlock,
+                        to: &segments
                     )
+                    codeBlockLines = []
+                    isInsideCodeBlock = false
+                } else {
+                    codeBlockLines.append(String(line))
                 }
+
+                continue
             }
 
+            if isMarkdownCodeFence(line) {
+                isInsideCodeBlock = true
+                continue
+            }
+
+            let displayLine = watchDisplayMarkdownLine(from: Substring(line))
+            appendDisplayMarkdownSegment(
+                markdown: displayLine.markdown,
+                kind: displayLine.kind,
+                to: &segments
+            )
+        }
+
+        if isInsideCodeBlock {
+            appendDisplayMarkdownSegment(
+                markdown: markdownEscapedPlainText(codeBlockLines.joined(separator: "\n")),
+                kind: .codeBlock,
+                to: &segments
+            )
+        }
+
         return segments
+    }
+
+    private func appendDisplayMarkdownSegment(
+        markdown: String,
+        kind: RenderedMessageSegmentKind,
+        to segments: inout [WatchDisplayMarkdownSegment]
+    ) {
+        if let lastSegment = segments.last,
+           lastSegment.kind == kind,
+           kind.canMergeAdjacentLines {
+            segments[segments.count - 1].markdown += "\n\(markdown)"
+        } else {
+            segments.append(
+                WatchDisplayMarkdownSegment(
+                    markdown: markdown,
+                    kind: kind
+                )
+            )
+        }
     }
 
     private func watchDisplayMarkdownLine(from line: Substring) -> WatchDisplayMarkdownLine {
@@ -336,10 +401,18 @@ struct WatchContentView: View {
             index = line.index(after: index)
         }
 
+        if isMarkdownHorizontalRule(line) {
+            return WatchDisplayMarkdownLine(markdown: " ", kind: .horizontalRule)
+        }
+
+        if let headingText = markdownHeadingText(in: line, from: index) {
+            return WatchDisplayMarkdownLine(markdown: headingText, kind: .heading)
+        }
+
         guard index < line.endIndex,
               line[index] == ">"
         else {
-            return WatchDisplayMarkdownLine(markdown: String(line), isBlockquote: false)
+            return WatchDisplayMarkdownLine(markdown: String(line), kind: .body)
         }
 
         index = line.index(after: index)
@@ -349,7 +422,60 @@ struct WatchContentView: View {
             index = line.index(after: index)
         }
 
-        return WatchDisplayMarkdownLine(markdown: String(line[index...]), isBlockquote: true)
+        return WatchDisplayMarkdownLine(markdown: String(line[index...]), kind: .blockquote)
+    }
+
+    private func isMarkdownCodeFence(_ line: Substring) -> Bool {
+        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        return trimmedLine.hasPrefix("```") || trimmedLine.hasPrefix("~~~")
+    }
+
+    private func isMarkdownHorizontalRule(_ line: Substring) -> Bool {
+        let compactLine = line.filter { !$0.isWhitespace }
+        guard compactLine.count >= 3,
+              let marker = compactLine.first,
+              marker == "-" || marker == "*" || marker == "_"
+        else {
+            return false
+        }
+
+        return compactLine.allSatisfy { $0 == marker }
+    }
+
+    private func markdownHeadingText(in line: Substring, from startIndex: Substring.Index) -> String? {
+        var index = startIndex
+        var markerCount = 0
+
+        while index < line.endIndex,
+              markerCount < 6,
+              line[index] == "#" {
+            markerCount += 1
+            index = line.index(after: index)
+        }
+
+        guard markerCount > 0,
+              index < line.endIndex,
+              line[index] == " "
+        else {
+            return nil
+        }
+
+        return String(line[line.index(after: index)...])
+    }
+
+    private func markdownEscapedPlainText(_ text: String) -> String {
+        var escapedText = ""
+        let markdownControlCharacters = Set("\\`*_{}[]<>()#+-.!|")
+
+        for character in text {
+            if markdownControlCharacters.contains(character) {
+                escapedText.append("\\")
+            }
+
+            escapedText.append(character)
+        }
+
+        return escapedText
     }
 
     private func markdownAttributedString(from text: String) -> AttributedString {
@@ -375,7 +501,7 @@ struct WatchContentView: View {
                 renderedSegments.append(
                     renderedSegment(
                         from: AttributedString(attributed[range]),
-                        isBlockquote: displaySegment.isBlockquote
+                        kind: displaySegment.kind
                     )
                 )
             }
@@ -389,7 +515,7 @@ struct WatchContentView: View {
 
         if renderedSegments.isEmpty {
             return [
-                renderedSegment(from: attributed, isBlockquote: false)
+                renderedSegment(from: attributed, kind: .body)
             ]
         }
 
@@ -398,11 +524,11 @@ struct WatchContentView: View {
 
     private func renderedSegment(
         from attributed: AttributedString,
-        isBlockquote: Bool
+        kind: RenderedMessageSegmentKind
     ) -> RenderedMessageSegment {
         var text = attributed
         appendLinkMarkers(to: &text)
-        return RenderedMessageSegment(text: text, isBlockquote: isBlockquote)
+        return RenderedMessageSegment(text: text, kind: kind)
     }
 
     private func applyCitationLinks(
@@ -1183,17 +1309,34 @@ private struct RenderedMessageText {
 
 private struct RenderedMessageSegment {
     var text: AttributedString
-    var isBlockquote: Bool
+    var kind: RenderedMessageSegmentKind
 }
 
 private struct WatchDisplayMarkdownSegment {
     var markdown: String
-    var isBlockquote: Bool
+    var kind: RenderedMessageSegmentKind
 }
 
 private struct WatchDisplayMarkdownLine {
     var markdown: String
-    var isBlockquote: Bool
+    var kind: RenderedMessageSegmentKind
+}
+
+private enum RenderedMessageSegmentKind: Equatable {
+    case body
+    case heading
+    case blockquote
+    case codeBlock
+    case horizontalRule
+
+    var canMergeAdjacentLines: Bool {
+        switch self {
+        case .body, .blockquote, .codeBlock:
+            return true
+        case .heading, .horizontalRule:
+            return false
+        }
+    }
 }
 
 private struct LinkMarker {

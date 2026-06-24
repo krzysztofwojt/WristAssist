@@ -139,12 +139,22 @@ struct OpenAIStandaloneModelsTests {
         let response = OpenAIMockResponses.richMarkdownCitationResponse(turnNumber: 7)
 
         #expect(response.usedWebSearch)
-        #expect(response.text.contains("**Mock web answer 7**"))
+        #expect(response.text.contains("## Mock web answer 7"))
         #expect(response.text.contains("**bold**"))
+        #expect(response.text.contains("__strong__"))
         #expect(response.text.contains("*italic*"))
+        #expect(response.text.contains("_emphasis_"))
+        #expect(response.text.contains("***bold italic***"))
+        #expect(response.text.contains("~~strikethrough~~"))
         #expect(response.text.contains("`inline code`"))
+        #expect(response.text.contains("\\*literal asterisks\\*"))
         #expect(response.text.contains("[OpenAI News](https://openai.com/news)"))
+        #expect(response.text.contains("<https://openai.com/news>"))
+        #expect(response.text.contains("![OpenAI logo](https://openai.com/favicon.ico)"))
         #expect(response.text.contains("[Apple Developer watchOS docs](https://developer.apple.com/watchos/)"))
+        #expect(response.text.contains("```swift"))
+        #expect(response.text.contains("---"))
+        #expect(response.text.contains("| Format | Status |"))
         #expect(response.citations.count == 2)
 
         let citedText = try response.citations.map { try substring(in: response.text, citation: $0) }
