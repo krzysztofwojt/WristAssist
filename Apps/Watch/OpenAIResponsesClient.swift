@@ -9,11 +9,11 @@ struct OpenAIResponsesClient {
         self.session = session
     }
 
-    func responseText(
+    func response(
         apiKey: String,
         settings: ProviderSettings,
         messages: [ChatMessage]
-    ) async throws -> String {
+    ) async throws -> OpenAIAssistantResponse {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.timeoutInterval = 60
@@ -37,12 +37,25 @@ struct OpenAIResponsesClient {
         }
 
         let decoded = try JSONDecoder().decode(OpenAIResponsesResponse.self, from: data)
-        let text = decoded.assistantText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else {
+        var assistantResponse = decoded.assistantResponse
+        let trimmedText = assistantResponse.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
             throw WatchOpenAIClientError.emptyResponse
         }
 
-        return text
+        if assistantResponse.citations.isEmpty {
+            assistantResponse.text = trimmedText
+        }
+
+        return assistantResponse
+    }
+
+    func responseText(
+        apiKey: String,
+        settings: ProviderSettings,
+        messages: [ChatMessage]
+    ) async throws -> String {
+        try await response(apiKey: apiKey, settings: settings, messages: messages).text
     }
 
     private static func errorMessage(from data: Data, statusCode: Int) -> String {

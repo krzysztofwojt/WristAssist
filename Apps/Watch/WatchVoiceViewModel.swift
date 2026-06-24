@@ -85,7 +85,7 @@ final class WatchVoiceViewModel: ObservableObject {
         self.pttState = .ready
         self.settings = localConfiguration.settings
         self.apiKey = openAITestMode.apiKeyOverride ?? (try? configurationStore.loadAPIKey())
-        self.messages = []
+        self.messages = openAITestMode.initialMessages()
 
         self.recorder.cleanupTemporaryFiles()
 
@@ -359,13 +359,13 @@ final class WatchVoiceViewModel: ObservableObject {
             assistantPlaceholderID = appendAssistantPlaceholder()
             Self.logger.info("ptt transcript appended characters=\(transcript.count, privacy: .public)")
 
-            let assistantText = try await assistantResponse(apiKey: apiKey, messages: messages)
+            let assistantResponse = try await assistantResponse(apiKey: apiKey, messages: messages)
             guard activeTurnID == turnID else { return }
 
-            updateAssistantPlaceholder(id: assistantPlaceholderID, response: assistantText)
+            updateAssistantPlaceholder(id: assistantPlaceholderID, response: assistantResponse)
             pttState = .ready
             errorMessage = nil
-            Self.logger.info("ptt assistant response appended characters=\(assistantText.count, privacy: .public)")
+            Self.logger.info("ptt assistant response appended characters=\(assistantResponse.text.count, privacy: .public) citations=\(assistantResponse.citations.count, privacy: .public)")
         } catch {
             guard activeTurnID == turnID else { return }
             let failureDescription = error.localizedDescription
@@ -514,13 +514,31 @@ final class WatchVoiceViewModel: ObservableObject {
         return try await transcriptionClient.transcribe(audioURL: file.url, apiKey: apiKey)
     }
 
-    private func assistantResponse(apiKey: String, messages: [ChatMessage]) async throws -> String {
-        if openAITestMode.isEnabled {
-            await openAITestMode.simulateResponseDelay()
-            return openAITestMode.assistantText(turnNumber: messages.filter { $0.role == .user && !$0.isPlaceholder }.count)
+    func openCitationOnPhone(_ citation: ChatCitation) async -> String? {
+        guard let url = URL(string: citation.url) else {
+            return "Source URL is invalid."
         }
 
-        return try await responsesClient.responseText(
+        do {
+            try await connectivity.openURLOnPhone(url)
+            errorMessage = nil
+            return nil
+        } catch {
+            let message = error.localizedDescription
+            errorMessage = message
+            return message
+        }
+    }
+
+    private func assistantResponse(apiKey: String, messages: [ChatMessage]) async throws -> OpenAIAssistantResponse {
+        if openAITestMode.isEnabled {
+            await openAITestMode.simulateResponseDelay()
+            return openAITestMode.assistantResponse(
+                turnNumber: messages.filter { $0.role == .user && !$0.isPlaceholder }.count
+            )
+        }
+
+        return try await responsesClient.response(
             apiKey: apiKey,
             settings: settings,
             messages: messages
@@ -627,17 +645,18 @@ final class WatchVoiceViewModel: ObservableObject {
         return message.id
     }
 
-    private func updateAssistantPlaceholder(id: UUID?, response: String) {
+    private func updateAssistantPlaceholder(id: UUID?, response: OpenAIAssistantResponse) {
         guard let id else {
-            messages.append(ChatMessage(role: .assistant, text: response))
+            messages.append(ChatMessage(role: .assistant, text: response.text, citations: response.citations))
             return
         }
 
         updateMessage(id: id) { message in
-            message.text = response
+            message.text = response.text
+            message.citations = response.citations
             message.isPlaceholder = false
         } fallback: {
-            self.messages.append(ChatMessage(role: .assistant, text: response))
+            self.messages.append(ChatMessage(role: .assistant, text: response.text, citations: response.citations))
         }
     }
 
@@ -691,6 +710,7 @@ final class WatchVoiceViewModel: ObservableObject {
 struct WatchOpenAITestMode: Equatable {
     var isEnabled: Bool
     var transcriptionFailuresBeforeSuccess: Int = 0
+    var seedsCitationChat: Bool = false
 
     var apiKeyOverride: String? {
         isEnabled ? "__wristassist_mock_openai__" : nil
@@ -702,7 +722,11 @@ struct WatchOpenAITestMode: Equatable {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
         let isLaunchArgumentEnabled = processInfo.arguments.contains("-WristAssistMockOpenAI")
+        let isSeedChatLaunchArgumentEnabled = processInfo.arguments.contains("-WristAssistMockCitationChat")
         let environmentValue = processInfo.environment["WRISTASSIST_MOCK_OPENAI"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let seedChatEnvironmentValue = processInfo.environment["WRISTASSIST_MOCK_CITATION_CHAT"]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         let isEnvironmentEnabled = ["1", "true", "yes", "on"].contains(environmentValue ?? "")
@@ -715,10 +739,16 @@ struct WatchOpenAITestMode: Equatable {
                 ) ??
                 0
         )
+        let isSeedChatEnvironmentEnabled = ["1", "true", "yes", "on"].contains(seedChatEnvironmentValue ?? "")
+        let seedsCitationChat = isSeedChatLaunchArgumentEnabled || isSeedChatEnvironmentEnabled
 
         return WatchOpenAITestMode(
-            isEnabled: isLaunchArgumentEnabled || isEnvironmentEnabled || transcriptionFailuresBeforeSuccess > 0,
-            transcriptionFailuresBeforeSuccess: transcriptionFailuresBeforeSuccess
+            isEnabled: isLaunchArgumentEnabled ||
+                isEnvironmentEnabled ||
+                transcriptionFailuresBeforeSuccess > 0 ||
+                seedsCitationChat,
+            transcriptionFailuresBeforeSuccess: transcriptionFailuresBeforeSuccess,
+            seedsCitationChat: seedsCitationChat
         )
         #else
         return .disabled
@@ -738,8 +768,25 @@ struct WatchOpenAITestMode: Equatable {
         return String(format: "Mock transcript from %.1fs recording.", seconds)
     }
 
-    func assistantText(turnNumber: Int) -> String {
-        "Mock response \(turnNumber): PTT recording, transcription, and chat rendering completed without OpenAI."
+    func assistantResponse(turnNumber: Int) -> OpenAIAssistantResponse {
+        OpenAIMockResponses.richMarkdownCitationResponse(turnNumber: turnNumber)
+    }
+
+    func initialMessages() -> [ChatMessage] {
+        guard seedsCitationChat else { return [] }
+
+        let response = assistantResponse(turnNumber: 1)
+        return [
+            ChatMessage(
+                role: .user,
+                text: "Show the markdown and citation rendering fixture."
+            ),
+            ChatMessage(
+                role: .assistant,
+                text: response.text,
+                citations: response.citations
+            )
+        ]
     }
 
     private static func integerArgument(named name: String, in arguments: [String]) -> Int? {

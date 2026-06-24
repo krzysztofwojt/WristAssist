@@ -12,6 +12,8 @@ struct WatchContentView: View {
     @State private var isProgrammaticallyScrollingToBottom = false
     @State private var suppressedScrolledAwayState = false
     @State private var scrollToBottomSuppressionGeneration = 0
+    @State private var selectedCitation: ChatCitation?
+    @State private var citationOpenFailure: String?
     private let bottomID = "chat-bottom"
     private let chatScrollCoordinateSpace = "watch-chat-scroll"
     private let chatBottomReadableInset: CGFloat = 78
@@ -63,6 +65,22 @@ struct WatchContentView: View {
             @unknown default:
                 viewModel.suspendAudioWarmup()
             }
+        }
+        .alert("Source", isPresented: isSelectedCitationPresented) {
+            Button("Open on iPhone") {
+                if let selectedCitation {
+                    openCitationOnPhone(selectedCitation)
+                }
+            }
+
+            Button("Close", role: .cancel) {}
+        } message: {
+            Text(selectedCitation?.displayTitle ?? "")
+        }
+        .alert("Could not open on iPhone", isPresented: isCitationOpenFailurePresented) {
+            Button("Close", role: .cancel) {}
+        } message: {
+            Text(citationOpenFailure ?? "")
         }
     }
 
@@ -198,11 +216,807 @@ struct WatchContentView: View {
                 .foregroundStyle(.white.opacity(0.76))
                 .multilineTextAlignment(.leading)
         } else {
-            Text(message.text)
+            let renderedMessage = renderedMessageText(for: message)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(renderedMessage.segments.indices, id: \.self) { index in
+                    messageTextSegment(renderedMessage.segments[index])
+                }
+
+                if message.role == .assistant && renderedMessage.sourceCount > 0 {
+                    sourceBadge(sourceCount: renderedMessage.sourceCount)
+                }
+            }
+            .environment(\.openURL, OpenURLAction { url in
+                if message.role == .assistant {
+                    selectCitation(for: url, in: message)
+                }
+                return .handled
+            })
+        }
+    }
+
+    @ViewBuilder
+    private func messageTextSegment(_ segment: RenderedMessageSegment) -> some View {
+        switch segment.kind {
+        case .body:
+            Text(segment.text)
                 .font(.system(size: 13, weight: .medium))
                 .lineSpacing(1)
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.leading)
+        case .heading:
+            Text(segment.text)
+                .font(.system(size: 14, weight: .semibold))
+                .lineSpacing(1)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+        case .blockquote:
+            Text(segment.text)
+                .font(.system(size: 13, weight: .medium))
+                .lineSpacing(1)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        case .codeBlock:
+            Text(segment.text)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .lineSpacing(1)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        case .horizontalRule:
+            Rectangle()
+                .fill(Color.white.opacity(0.24))
+                .frame(height: 1)
+                .padding(.vertical, 3)
+        case .table:
+            if let table = segment.table {
+                markdownTable(table)
+            }
+        }
+    }
+
+    private func markdownTable(_ table: RenderedMarkdownTable) -> some View {
+        ScrollView(.horizontal) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(table.rows.indices, id: \.self) { rowIndex in
+                    let row = table.rows[rowIndex]
+
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(row.cells.indices, id: \.self) { cellIndex in
+                            markdownTableCell(row.cells[cellIndex], isHeader: row.isHeader)
+                        }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+        }
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("Markdown table")
+    }
+
+    private func markdownTableCell(_ text: AttributedString, isHeader: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: isHeader ? .semibold : .medium))
+            .lineSpacing(1)
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.leading)
+            .frame(minWidth: 72, maxWidth: 118, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(isHeader ? Color.white.opacity(0.12) : Color.white.opacity(0.06))
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(height: 1)
+            }
+    }
+
+    private var isCitationOpenFailurePresented: Binding<Bool> {
+        Binding {
+            citationOpenFailure != nil
+        } set: { isPresented in
+            if !isPresented {
+                citationOpenFailure = nil
+            }
+        }
+    }
+
+    private var isSelectedCitationPresented: Binding<Bool> {
+        Binding {
+            selectedCitation != nil
+        } set: { isPresented in
+            if !isPresented {
+                selectedCitation = nil
+            }
+        }
+    }
+
+    private func renderedMessageText(for message: ChatMessage) -> RenderedMessageText {
+        let displaySegments = watchDisplayMarkdownSegments(from: message.text)
+        let displayMarkdown = displaySegments.map(\.markdown).joined(separator: "\n")
+        var attributed = markdownAttributedString(from: displayMarkdown)
+
+        if message.role == .assistant {
+            applyCitationLinks(to: &attributed, citations: validCitations(for: message), sourceText: message.text)
+        }
+
+        let sourceCount = sourceCount(in: attributed)
+        styleLinks(in: &attributed)
+
+        return RenderedMessageText(
+            segments: renderedSegments(from: attributed, displaySegments: displaySegments),
+            sourceCount: sourceCount
+        )
+    }
+
+    private func watchDisplayMarkdown(from text: String) -> String {
+        watchDisplayMarkdownSegments(from: text)
+            .map(\.markdown)
+            .joined(separator: "\n")
+    }
+
+    private func watchDisplayMarkdownSegments(from text: String) -> [WatchDisplayMarkdownSegment] {
+        var segments: [WatchDisplayMarkdownSegment] = []
+        var codeBlockLines: [String] = []
+        var isInsideCodeBlock = false
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        var lineIndex = 0
+
+        while lineIndex < lines.count {
+            let line = lines[lineIndex]
+
+            if isInsideCodeBlock {
+                if isMarkdownCodeFence(line) {
+                    appendDisplayMarkdownSegment(
+                        markdown: markdownEscapedPlainText(codeBlockLines.joined(separator: "\n")),
+                        kind: .codeBlock,
+                        to: &segments
+                    )
+                    codeBlockLines = []
+                    isInsideCodeBlock = false
+                } else {
+                    codeBlockLines.append(String(line))
+                }
+
+                lineIndex += 1
+                continue
+            }
+
+            if isMarkdownCodeFence(line) {
+                isInsideCodeBlock = true
+                lineIndex += 1
+                continue
+            }
+
+            if let tableResult = markdownTableSegment(startingAt: lineIndex, in: lines) {
+                appendDisplayMarkdownSegment(
+                    markdown: tableResult.table.displayMarkdown,
+                    kind: .table,
+                    table: tableResult.table,
+                    to: &segments
+                )
+                lineIndex = tableResult.nextLineIndex
+                continue
+            }
+
+            let displayLine = watchDisplayMarkdownLine(from: Substring(line))
+            appendDisplayMarkdownSegment(
+                markdown: displayLine.markdown,
+                kind: displayLine.kind,
+                to: &segments
+            )
+
+            lineIndex += 1
+        }
+
+        if isInsideCodeBlock {
+            appendDisplayMarkdownSegment(
+                markdown: markdownEscapedPlainText(codeBlockLines.joined(separator: "\n")),
+                kind: .codeBlock,
+                to: &segments
+            )
+        }
+
+        return segments
+    }
+
+    private func appendDisplayMarkdownSegment(
+        markdown: String,
+        kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil,
+        to segments: inout [WatchDisplayMarkdownSegment]
+    ) {
+        if let lastSegment = segments.last,
+           lastSegment.kind == kind,
+           lastSegment.table == nil,
+           table == nil,
+           kind.canMergeAdjacentLines {
+            segments[segments.count - 1].markdown += "\n\(markdown)"
+        } else {
+            segments.append(
+                WatchDisplayMarkdownSegment(
+                    markdown: markdown,
+                    kind: kind,
+                    table: table
+                )
+            )
+        }
+    }
+
+    private func watchDisplayMarkdownLine(from line: Substring) -> WatchDisplayMarkdownLine {
+        var index = line.startIndex
+        var consumedIndentation = 0
+
+        while index < line.endIndex,
+              consumedIndentation < 3,
+              line[index] == " " {
+            consumedIndentation += 1
+            index = line.index(after: index)
+        }
+
+        if isMarkdownHorizontalRule(line) {
+            return WatchDisplayMarkdownLine(markdown: " ", kind: .horizontalRule)
+        }
+
+        if let headingText = markdownHeadingText(in: line, from: index) {
+            return WatchDisplayMarkdownLine(markdown: headingText, kind: .heading)
+        }
+
+        guard index < line.endIndex,
+              line[index] == ">"
+        else {
+            return WatchDisplayMarkdownLine(markdown: String(line), kind: .body)
+        }
+
+        index = line.index(after: index)
+
+        if index < line.endIndex,
+           line[index] == " " {
+            index = line.index(after: index)
+        }
+
+        return WatchDisplayMarkdownLine(markdown: String(line[index...]), kind: .blockquote)
+    }
+
+    private func isMarkdownCodeFence(_ line: Substring) -> Bool {
+        let trimmedLine = line.trimmingCharacters(in: .whitespaces)
+        return trimmedLine.hasPrefix("```") || trimmedLine.hasPrefix("~~~")
+    }
+
+    private func isMarkdownHorizontalRule(_ line: Substring) -> Bool {
+        let compactLine = line.filter { !$0.isWhitespace }
+        guard compactLine.count >= 3,
+              let marker = compactLine.first,
+              marker == "-" || marker == "*" || marker == "_"
+        else {
+            return false
+        }
+
+        return compactLine.allSatisfy { $0 == marker }
+    }
+
+    private func markdownTableSegment(
+        startingAt lineIndex: Int,
+        in lines: [Substring]
+    ) -> (table: WatchDisplayMarkdownTable, nextLineIndex: Int)? {
+        guard lineIndex + 1 < lines.count,
+              let headerCells = markdownTableCells(in: lines[lineIndex]),
+              headerCells.count >= 2,
+              isMarkdownTableSeparator(lines[lineIndex + 1], columnCount: headerCells.count)
+        else {
+            return nil
+        }
+
+        var rows = [headerCells]
+        var nextLineIndex = lineIndex + 2
+
+        while nextLineIndex < lines.count,
+              let cells = markdownTableCells(in: lines[nextLineIndex]) {
+            rows.append(normalizedMarkdownTableCells(cells, columnCount: headerCells.count))
+            nextLineIndex += 1
+        }
+
+        return (
+            table: WatchDisplayMarkdownTable(rows: rows),
+            nextLineIndex: nextLineIndex
+        )
+    }
+
+    private func markdownTableCells(in line: Substring) -> [String]? {
+        var tableLine = String(line).trimmingCharacters(in: .whitespaces)
+        guard tableLine.contains("|") else { return nil }
+
+        if tableLine.first == "|" {
+            tableLine.removeFirst()
+        }
+
+        if tableLine.last == "|" {
+            tableLine.removeLast()
+        }
+
+        let cells = tableLine
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        guard cells.count >= 2 else { return nil }
+        return cells
+    }
+
+    private func normalizedMarkdownTableCells(_ cells: [String], columnCount: Int) -> [String] {
+        if cells.count == columnCount {
+            return cells
+        }
+
+        if cells.count > columnCount {
+            return Array(cells.prefix(columnCount))
+        }
+
+        return cells + Array(repeating: "", count: columnCount - cells.count)
+    }
+
+    private func isMarkdownTableSeparator(_ line: Substring, columnCount: Int) -> Bool {
+        guard let cells = markdownTableCells(in: line),
+              cells.count == columnCount
+        else {
+            return false
+        }
+
+        return cells.allSatisfy(isMarkdownTableSeparatorCell)
+    }
+
+    private func isMarkdownTableSeparatorCell(_ cell: String) -> Bool {
+        let compactCell = cell.filter { !$0.isWhitespace }
+        let dashCount = compactCell.filter { $0 == "-" }.count
+
+        guard dashCount >= 3 else { return false }
+
+        return compactCell.allSatisfy { character in
+            character == "-" || character == ":"
+        }
+    }
+
+    private func markdownHeadingText(in line: Substring, from startIndex: Substring.Index) -> String? {
+        var index = startIndex
+        var markerCount = 0
+
+        while index < line.endIndex,
+              markerCount < 6,
+              line[index] == "#" {
+            markerCount += 1
+            index = line.index(after: index)
+        }
+
+        guard markerCount > 0,
+              index < line.endIndex,
+              line[index] == " "
+        else {
+            return nil
+        }
+
+        return String(line[line.index(after: index)...])
+    }
+
+    private func markdownEscapedPlainText(_ text: String) -> String {
+        var escapedText = ""
+        let markdownControlCharacters = Set("\\`*_{}[]<>()#+-.!|")
+
+        for character in text {
+            if markdownControlCharacters.contains(character) {
+                escapedText.append("\\")
+            }
+
+            escapedText.append(character)
+        }
+
+        return escapedText
+    }
+
+    private func markdownAttributedString(from text: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+    }
+
+    private func renderedSegments(
+        from attributed: AttributedString,
+        displaySegments: [WatchDisplayMarkdownSegment]
+    ) -> [RenderedMessageSegment] {
+        var renderedSegments: [RenderedMessageSegment] = []
+        var nextOffset = 0
+
+        for (index, displaySegment) in displaySegments.enumerated() {
+            let visibleLength = markdownAttributedString(from: displaySegment.markdown).characters.count
+
+            if let range = attributedRange(
+                in: attributed,
+                lowerOffset: nextOffset,
+                upperOffset: nextOffset + visibleLength
+            ) {
+                renderedSegments.append(
+                    renderedSegment(
+                        from: AttributedString(attributed[range]),
+                        kind: displaySegment.kind,
+                        table: displaySegment.table
+                    )
+                )
+            }
+
+            nextOffset += visibleLength
+
+            if index < displaySegments.count - 1 {
+                nextOffset += 1
+            }
+        }
+
+        if renderedSegments.isEmpty {
+            return [
+                renderedSegment(from: attributed, kind: .body)
+            ]
+        }
+
+        return renderedSegments
+    }
+
+    private func renderedSegment(
+        from attributed: AttributedString,
+        kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil
+    ) -> RenderedMessageSegment {
+        if let table {
+            return RenderedMessageSegment(
+                text: attributed,
+                kind: kind,
+                table: renderedMarkdownTable(from: attributed, sourceTable: table)
+            )
+        }
+
+        var text = attributed
+        appendLinkMarkers(to: &text)
+        return RenderedMessageSegment(text: text, kind: kind)
+    }
+
+    private func renderedMarkdownTable(
+        from attributed: AttributedString,
+        sourceTable: WatchDisplayMarkdownTable
+    ) -> RenderedMarkdownTable {
+        var rowOffset = 0
+        var rows: [RenderedMarkdownTableRow] = []
+
+        for (rowIndex, sourceRow) in sourceTable.rows.enumerated() {
+            var cellOffset = rowOffset
+            var cells: [AttributedString] = []
+
+            for (cellIndex, cellMarkdown) in sourceRow.enumerated() {
+                let cellLength = markdownAttributedString(from: cellMarkdown).characters.count
+
+                if let range = attributedRange(
+                    in: attributed,
+                    lowerOffset: cellOffset,
+                    upperOffset: cellOffset + cellLength
+                ) {
+                    var cellText = AttributedString(attributed[range])
+                    appendLinkMarkers(to: &cellText)
+                    cells.append(cellText)
+                } else {
+                    var fallbackText = markdownAttributedString(from: cellMarkdown)
+                    appendLinkMarkers(to: &fallbackText)
+                    cells.append(fallbackText)
+                }
+
+                cellOffset += cellLength
+
+                if cellIndex < sourceRow.count - 1 {
+                    cellOffset += 1
+                }
+            }
+
+            rows.append(
+                RenderedMarkdownTableRow(
+                    cells: cells,
+                    isHeader: rowIndex == 0
+                )
+            )
+
+            rowOffset = cellOffset
+
+            if rowIndex < sourceTable.rows.count - 1 {
+                rowOffset += 1
+            }
+        }
+
+        return RenderedMarkdownTable(rows: rows)
+    }
+
+    private func applyCitationLinks(
+        to attributed: inout AttributedString,
+        citations: [ChatCitation],
+        sourceText: String
+    ) {
+        var nextVisibleSearchOffset = 0
+
+        for citation in citations {
+            guard let url = URL(string: citation.url),
+                  let range = citationVisibleRange(
+                    for: citation,
+                    sourceText: sourceText,
+                    attributed: attributed,
+                    minimumVisibleOffset: nextVisibleSearchOffset
+                  )
+            else {
+                continue
+            }
+
+            attributed[range].link = url
+            nextVisibleSearchOffset = attributed.characters.distance(from: attributed.startIndex, to: range.upperBound)
+        }
+    }
+
+    private func citationVisibleRange(
+        for citation: ChatCitation,
+        sourceText: String,
+        attributed: AttributedString,
+        minimumVisibleOffset: Int
+    ) -> Range<AttributedString.Index>? {
+        if let renderedRange = renderedCitationRange(
+            for: citation,
+            sourceText: sourceText,
+            attributed: attributed,
+            minimumVisibleOffset: minimumVisibleOffset
+        ) {
+            return renderedRange
+        }
+
+        return offsetCitationRange(for: citation, attributed: attributed)
+    }
+
+    private func renderedCitationRange(
+        for citation: ChatCitation,
+        sourceText: String,
+        attributed: AttributedString,
+        minimumVisibleOffset: Int
+    ) -> Range<AttributedString.Index>? {
+        guard let sourceRange = stringRange(
+            in: sourceText,
+            startOffset: citation.startIndex,
+            endOffset: citation.endIndex
+        ) else {
+            return nil
+        }
+
+        let rawCitationText = String(sourceText[sourceRange])
+        let displayCitationText = watchDisplayMarkdown(from: rawCitationText)
+        let visibleCitationText = String(markdownAttributedString(from: displayCitationText).characters)
+        guard !visibleCitationText.isEmpty else {
+            return nil
+        }
+
+        let visibleText = String(attributed.characters)
+        guard !visibleText.isEmpty else {
+            return nil
+        }
+
+        let preferredVisibleOffset = visibleOffset(
+            forSourceOffset: citation.startIndex,
+            sourceText: sourceText
+        ) ?? minimumVisibleOffset
+
+        guard let range = bestVisibleRange(
+            matching: visibleCitationText,
+            in: visibleText,
+            preferredOffset: preferredVisibleOffset,
+            minimumOffset: minimumVisibleOffset
+        )
+        else {
+            return nil
+        }
+
+        return attributedRange(
+            in: attributed,
+            lowerOffset: visibleText.distance(from: visibleText.startIndex, to: range.lowerBound),
+            upperOffset: visibleText.distance(from: visibleText.startIndex, to: range.upperBound)
+        )
+    }
+
+    private func visibleOffset(forSourceOffset sourceOffset: Int, sourceText: String) -> Int? {
+        guard sourceOffset >= 0,
+              sourceOffset <= sourceText.count
+        else {
+            return nil
+        }
+
+        let prefixEnd = sourceText.index(sourceText.startIndex, offsetBy: sourceOffset)
+        let displayPrefix = watchDisplayMarkdown(from: String(sourceText[..<prefixEnd]))
+        return markdownAttributedString(from: displayPrefix).characters.count
+    }
+
+    private func bestVisibleRange(
+        matching text: String,
+        in visibleText: String,
+        preferredOffset: Int,
+        minimumOffset: Int
+    ) -> Range<String.Index>? {
+        var matches: [(range: Range<String.Index>, lowerOffset: Int)] = []
+        var searchStart = visibleText.startIndex
+
+        while searchStart < visibleText.endIndex,
+              let range = visibleText.range(of: text, range: searchStart..<visibleText.endIndex) {
+            let lowerOffset = visibleText.distance(from: visibleText.startIndex, to: range.lowerBound)
+            matches.append((range, lowerOffset))
+            searchStart = range.upperBound
+        }
+
+        let eligibleMatches = matches.filter { $0.lowerOffset >= minimumOffset }
+        let candidates = eligibleMatches.isEmpty ? matches : eligibleMatches
+        return candidates.min { lhs, rhs in
+            let lhsDistance = abs(lhs.lowerOffset - preferredOffset)
+            let rhsDistance = abs(rhs.lowerOffset - preferredOffset)
+            guard lhsDistance != rhsDistance else {
+                return lhs.lowerOffset < rhs.lowerOffset
+            }
+
+            return lhsDistance < rhsDistance
+        }?.range
+    }
+
+    private func offsetCitationRange(
+        for citation: ChatCitation,
+        attributed: AttributedString
+    ) -> Range<AttributedString.Index>? {
+        attributedRange(
+            in: attributed,
+            lowerOffset: citation.startIndex,
+            upperOffset: citation.endIndex
+        )
+    }
+
+    private func attributedRange(
+        in attributed: AttributedString,
+        lowerOffset: Int,
+        upperOffset: Int
+    ) -> Range<AttributedString.Index>? {
+        let visibleTextLength = attributed.characters.count
+        guard lowerOffset >= 0,
+              upperOffset > lowerOffset,
+              upperOffset <= visibleTextLength
+        else {
+            return nil
+        }
+
+        let start = attributed.characters.index(attributed.startIndex, offsetBy: lowerOffset)
+        let end = attributed.characters.index(attributed.startIndex, offsetBy: upperOffset)
+        return start..<end
+    }
+
+    private func stringRange(
+        in text: String,
+        startOffset: Int,
+        endOffset: Int
+    ) -> Range<String.Index>? {
+        guard startOffset >= 0,
+              endOffset > startOffset,
+              endOffset <= text.count
+        else {
+            return nil
+        }
+
+        let start = text.index(text.startIndex, offsetBy: startOffset)
+        let end = text.index(text.startIndex, offsetBy: endOffset)
+        return start..<end
+    }
+
+    private func styleLinks(in attributed: inout AttributedString) {
+        for run in attributed.runs {
+            guard run.link != nil else { continue }
+            attributed[run.range].foregroundColor = .white
+            attributed[run.range].underlineStyle = Text.LineStyle(pattern: .solid, color: .white)
+        }
+    }
+
+    private func appendLinkMarkers(to attributed: inout AttributedString) {
+        let markers = attributed.runs.compactMap { run -> LinkMarker? in
+            guard let url = run.link else { return nil }
+            let upperOffset = attributed.characters.distance(from: attributed.startIndex, to: run.range.upperBound)
+            return LinkMarker(upperOffset: upperOffset, url: url)
+        }
+
+        for marker in markers.reversed() {
+            let insertIndex = attributed.characters.index(attributed.startIndex, offsetBy: marker.upperOffset)
+            attributed.insert(sourceMarkerAttributedString(url: marker.url), at: insertIndex)
+        }
+    }
+
+    private func sourceMarkerAttributedString(url: URL) -> AttributedString {
+        var marker = AttributedString("\u{00A0}\u{1F310}\u{FE0E}")
+        marker.link = url
+        marker.foregroundColor = .white
+        marker.font = .system(size: 9, weight: .semibold)
+        return marker
+    }
+
+    private func sourceCount(in attributed: AttributedString) -> Int {
+        var urls = Set<String>()
+
+        for run in attributed.runs {
+            if let url = run.link {
+                urls.insert(url.absoluteString)
+            }
+        }
+
+        return urls.count
+    }
+
+    private func validCitations(for message: ChatMessage) -> [ChatCitation] {
+        var nextAvailableOffset = 0
+        var citations: [ChatCitation] = []
+        let textLength = message.text.count
+
+        for citation in message.citations.sorted(by: { $0.startIndex < $1.startIndex }) {
+            guard citation.startIndex >= nextAvailableOffset,
+                  citation.endIndex > citation.startIndex,
+                  citation.endIndex <= textLength
+            else {
+                continue
+            }
+
+            citations.append(citation)
+            nextAvailableOffset = citation.endIndex
+        }
+
+        return citations
+    }
+
+    private func sourceBadge(sourceCount: Int) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: "globe")
+                .font(.system(size: 9, weight: .semibold))
+
+            Text(sourceCount == 1 ? "1 source" : "\(sourceCount) sources")
+                .font(.system(size: 9, weight: .semibold))
+        }
+        .foregroundStyle(.white.opacity(0.68))
+        .accessibilityLabel(sourceCount == 1 ? "1 web source" : "\(sourceCount) web sources")
+    }
+
+    private func selectCitation(for url: URL, in message: ChatMessage) {
+        selectedCitation = message.citations.first { citation in
+            guard let citationURL = URL(string: citation.url) else {
+                return citation.url == url.absoluteString
+            }
+
+            return citationURL.absoluteString == url.absoluteString
+        } ?? ChatCitation(
+            startIndex: 0,
+            endIndex: 0,
+            url: url.absoluteString,
+            title: url.host() ?? "Source"
+        )
+    }
+
+    private func openCitationOnPhone(_ citation: ChatCitation) {
+        Task {
+            let failure = await viewModel.openCitationOnPhone(citation)
+            await MainActor.run {
+                citationOpenFailure = failure
+            }
         }
     }
 
@@ -748,6 +1562,90 @@ private struct ChatBottomYPreferenceKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
+}
+
+private struct RenderedMessageText {
+    var segments: [RenderedMessageSegment]
+    var sourceCount: Int
+}
+
+private struct RenderedMessageSegment {
+    var text: AttributedString
+    var kind: RenderedMessageSegmentKind
+    var table: RenderedMarkdownTable?
+
+    init(
+        text: AttributedString,
+        kind: RenderedMessageSegmentKind,
+        table: RenderedMarkdownTable? = nil
+    ) {
+        self.text = text
+        self.kind = kind
+        self.table = table
+    }
+}
+
+private struct WatchDisplayMarkdownSegment {
+    var markdown: String
+    var kind: RenderedMessageSegmentKind
+    var table: WatchDisplayMarkdownTable?
+
+    init(
+        markdown: String,
+        kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil
+    ) {
+        self.markdown = markdown
+        self.kind = kind
+        self.table = table
+    }
+}
+
+private struct WatchDisplayMarkdownLine {
+    var markdown: String
+    var kind: RenderedMessageSegmentKind
+}
+
+private enum RenderedMessageSegmentKind: Equatable {
+    case body
+    case heading
+    case blockquote
+    case codeBlock
+    case horizontalRule
+    case table
+
+    var canMergeAdjacentLines: Bool {
+        switch self {
+        case .body, .blockquote, .codeBlock:
+            return true
+        case .heading, .horizontalRule, .table:
+            return false
+        }
+    }
+}
+
+private struct WatchDisplayMarkdownTable {
+    var rows: [[String]]
+
+    var displayMarkdown: String {
+        rows
+            .map { $0.joined(separator: "\t") }
+            .joined(separator: "\n")
+    }
+}
+
+private struct RenderedMarkdownTable {
+    var rows: [RenderedMarkdownTableRow]
+}
+
+private struct RenderedMarkdownTableRow {
+    var cells: [AttributedString]
+    var isHeader: Bool
+}
+
+private struct LinkMarker {
+    var upperOffset: Int
+    var url: URL
 }
 
 private enum PTTDragTarget {

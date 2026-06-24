@@ -8,6 +8,8 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     var onSyncAPIKey: (@MainActor (String) -> Bool)?
     var onDeleteAPIKey: (@MainActor () -> Bool)?
     var hasLocalAPIKey: (@MainActor () -> Bool)?
+    private let pendingOpenURLLock = NSLock()
+    private var pendingOpenURLString: String?
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -22,7 +24,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             return configuration.settings
         case .settingsChanged(let settings):
             return settings
-        case .syncAPIKey, .deleteAPIKey, .keyStatusResponse:
+        case .syncAPIKey, .deleteAPIKey, .keyStatusResponse, .requestPendingOpenURL, .openURLResult:
             _ = await handlePhoneMessage(reply)
             return .default
         case .error(let message), .authUnavailable(let message):
@@ -40,7 +42,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 hasLocalAPIKey?() ?? settings.hasAPIKey
             }
             return WatchConfiguration(settings: settings, hasAPIKey: hasKey)
-        case .syncAPIKey, .deleteAPIKey, .keyStatusResponse:
+        case .syncAPIKey, .deleteAPIKey, .keyStatusResponse, .requestPendingOpenURL, .openURLResult:
             _ = await handlePhoneMessage(reply)
             let hasKey = await MainActor.run {
                 hasLocalAPIKey?() ?? false
@@ -60,6 +62,29 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
 
     func reportState(_ state: RealtimeConnectionState) async throws {
         _ = try await send(.reportConnectionState(state), expectsReply: false)
+    }
+
+    func openURLOnPhone(_ url: URL) async throws {
+        do {
+            let reply = try await send(.openURL(url.absoluteString))
+            switch reply {
+            case .openURLResult(let success, let message):
+                guard success else {
+                    throw WatchConnectivityClientError.remote(message ?? "iPhone could not open this source.")
+                }
+            case .configurationChanged, .settingsChanged, .syncAPIKey, .deleteAPIKey, .keyStatusResponse, .requestPendingOpenURL:
+                _ = await handlePhoneMessage(reply)
+                throw WatchConnectivityClientError.unexpectedReply
+            case .error(let message), .authUnavailable(let message):
+                throw WatchConnectivityClientError.remote(message)
+            }
+        } catch {
+            guard Self.shouldQueuePendingOpenURL(for: error) else {
+                throw error
+            }
+
+            enqueuePendingOpenURL(url)
+        }
     }
 
     func session(
@@ -137,6 +162,13 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
             guard !hasKey else { return nil }
             let remainingKey = onDeleteAPIKey?() ?? (hasLocalAPIKey?() ?? false)
             return .keyStatusResponse(hasKey: remainingKey)
+        case .requestPendingOpenURL:
+            guard let pendingURL = dequeuePendingOpenURL() else {
+                return .noPendingOpenURL
+            }
+            return .openURL(pendingURL)
+        case .openURLResult:
+            return nil
         case .authUnavailable, .error:
             return nil
         }
@@ -179,6 +211,51 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 }
             )
         }
+    }
+
+    private func enqueuePendingOpenURL(_ url: URL) {
+        if transferPendingOpenURL(url) {
+            return
+        }
+
+        pendingOpenURLLock.lock()
+        pendingOpenURLString = url.absoluteString
+        pendingOpenURLLock.unlock()
+    }
+
+    private func transferPendingOpenURL(_ url: URL) -> Bool {
+        guard WCSession.isSupported() else { return false }
+
+        let session = WCSession.default
+        guard session.activationState == .activated else { return false }
+        guard let dictionary = try? WatchToPhoneMessage.openURL(url.absoluteString).envelope().dictionary() else {
+            return false
+        }
+
+        session.transferUserInfo(dictionary)
+        return true
+    }
+
+    private func dequeuePendingOpenURL() -> String? {
+        pendingOpenURLLock.lock()
+        let urlString = pendingOpenURLString
+        pendingOpenURLString = nil
+        pendingOpenURLLock.unlock()
+        return urlString
+    }
+
+    private static func shouldQueuePendingOpenURL(for error: Error) -> Bool {
+        if case WatchConnectivityClientError.phoneUnreachable = error {
+            return true
+        }
+
+        if case WatchConnectivityClientError.remote(let message) = error {
+            return message == "Companion app is not installed."
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == WCErrorDomain &&
+            nsError.code == 7018
     }
 }
 
