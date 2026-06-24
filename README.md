@@ -9,6 +9,7 @@ WristAssist is a native SwiftUI iPhone + Apple Watch MVP for push-to-talk text c
 - WatchConnectivity bridge where iPhone syncs settings and separately syncs/deletes the OpenAI API key on the paired Watch.
 - iPhone-side API-key validation against the configured assistant model.
 - Watch-side API key storage in Keychain and direct HTTPS calls to transcription plus Responses APIs.
+- Responses requests can use OpenAI web search, preserve source citations, and hand source URLs off from Watch to iPhone.
 - Watch push-to-talk recording to temporary 24 kHz mono WAV files.
 - In-memory Watch chat session that resets on app process restart or API-key reset.
 - Shared Swift package target for settings, WatchConnectivity messages, OpenAI request models, WAV construction, legacy Realtime event models, and PCM16 conversion.
@@ -75,6 +76,11 @@ For local Watch UI testing without spending OpenAI tokens, run the `WristAssist 
 - environment variable `WRISTASSIST_MOCK_OPENAI=1`
 
 This mode still records through the microphone and writes the temporary WAV file, but it skips the transcription and Responses network requests. The Watch treats the API key as present and appends deterministic mock user and assistant chat bubbles after short simulated delays. The flag is ignored in Release builds.
+
+For Simulator-only citation rendering checks, run the shared `WristAssist Watch Mock Citations` scheme. It enables mock OpenAI plus `-WristAssistMockCitationChat`, so the Watch starts with a seeded assistant bubble containing bold, italic, inline code, markdown links, and `url_citation` ranges. The same citation-rich mock response is used for subsequent mock PTT turns. You can also enable this fixture manually with:
+
+- launch argument `-WristAssistMockCitationChat`
+- environment variable `WRISTASSIST_MOCK_CITATION_CHAT=1`
 
 ## Manual MVP Checklist
 

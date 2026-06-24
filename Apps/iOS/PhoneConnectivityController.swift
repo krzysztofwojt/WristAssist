@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import WatchConnectivity
 import WristAssistShared
 
@@ -9,6 +10,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     private let statusHandler: @MainActor (String) -> Void
     private let errorHandler: @MainActor (String) -> Void
     private let watchKeyStatusHandler: @MainActor (Bool) -> Void
+    private var pendingOpenURLPollTask: Task<Void, Never>?
 
     init(
         settingsProvider: @escaping @MainActor () -> ProviderSettings,
@@ -34,6 +36,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
 
         WCSession.default.delegate = self
         WCSession.default.activate()
+        startPendingOpenURLPolling()
     }
 
     func sendSettings(_ settings: ProviderSettings) {
@@ -105,6 +108,8 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         }
 
         if activationState == .activated {
+            startPendingOpenURLPolling()
+
             Task {
                 do {
                     sendConfiguration(try await currentConfiguration())
@@ -120,6 +125,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         guard session.isReachable else { return }
+        startPendingOpenURLPolling()
 
         Task {
             do {
@@ -197,6 +203,12 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
                     statusHandler("Watch: \(state.displayName)")
                 }
                 return [:]
+
+            case .openURL(let urlString):
+                return reply(await openURL(urlString))
+
+            case .noPendingOpenURL:
+                return [:]
             }
         } catch {
             await MainActor.run {
@@ -206,8 +218,73 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         }
     }
 
+    private func startPendingOpenURLPolling() {
+        guard pendingOpenURLPollTask == nil else { return }
+
+        pendingOpenURLPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                await self?.requestPendingOpenURLIfPossible()
+            }
+        }
+    }
+
+    private func requestPendingOpenURLIfPossible() async {
+        guard WCSession.isSupported() else { return }
+
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return }
+        guard let dictionary = try? PhoneToWatchMessage.requestPendingOpenURL.envelope().dictionary() else { return }
+
+        session.sendMessage(
+            dictionary,
+            replyHandler: { [weak self] reply in
+                Task {
+                    await self?.handlePendingOpenURLReply(reply)
+                }
+            },
+            errorHandler: nil
+        )
+    }
+
+    private func handlePendingOpenURLReply(_ reply: [String: Any]) async {
+        guard let envelope = try? MessageEnvelope(dictionary: reply),
+              let decoded = try? WatchToPhoneMessage(envelope: envelope)
+        else {
+            return
+        }
+
+        switch decoded {
+        case .openURL(let urlString):
+            _ = await openURL(urlString)
+        case .noPendingOpenURL:
+            return
+        case .requestConfiguration, .requestSettings, .keyStatusRequest, .keyStatusResponse, .reportConnectionState:
+            return
+        }
+    }
+
     private func reply(_ message: PhoneToWatchMessage) -> [String: Any] {
         (try? message.envelope().dictionary()) ?? [:]
+    }
+
+    private func openURL(_ urlString: String) async -> PhoneToWatchMessage {
+        guard let url = URL(string: urlString) else {
+            return .openURLResult(success: false, message: "Source URL is invalid.")
+        }
+
+        return await withCheckedContinuation { continuation in
+            Task { @MainActor in
+                UIApplication.shared.open(url, options: [:]) { success in
+                    continuation.resume(
+                        returning: .openURLResult(
+                            success: success,
+                            message: success ? nil : "iPhone could not open this source."
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private func currentConfiguration() async throws -> WatchConfiguration {
@@ -281,7 +358,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
                             watchKeyStatusHandler(hasKey)
                             statusHandler(hasKey ? "Watch: API key synced" : "Watch: API key deleted")
                         }
-                    case .keyStatusRequest, .requestConfiguration, .requestSettings, .reportConnectionState:
+                    case .keyStatusRequest, .requestConfiguration, .requestSettings, .reportConnectionState, .openURL, .noPendingOpenURL:
                         Task { @MainActor in
                             errorHandler("Apple Watch returned an unexpected key-sync reply.")
                         }

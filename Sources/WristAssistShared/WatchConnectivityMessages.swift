@@ -46,6 +46,8 @@ public enum PhoneToWatchMessage: Equatable, Sendable {
     case syncAPIKey(String)
     case deleteAPIKey
     case keyStatusResponse(hasKey: Bool)
+    case requestPendingOpenURL
+    case openURLResult(success: Bool, message: String?)
     case authUnavailable(String)
     case error(String)
 
@@ -61,6 +63,13 @@ public enum PhoneToWatchMessage: Equatable, Sendable {
             return MessageEnvelope(type: "deleteAPIKey")
         case .keyStatusResponse(let hasKey):
             return try MessageEnvelope(type: "keyStatusResponse", payload: encode(KeyStatusPayload(hasKey: hasKey)))
+        case .requestPendingOpenURL:
+            return MessageEnvelope(type: "requestPendingOpenURL")
+        case .openURLResult(let success, let message):
+            return try MessageEnvelope(
+                type: "openURLResult",
+                payload: encode(OpenURLResultPayload(success: success, message: message))
+            )
         case .authUnavailable(let message):
             return try MessageEnvelope(type: "authUnavailable", payload: encode(MessagePayload(message: message)))
         case .error(let message):
@@ -80,6 +89,11 @@ public enum PhoneToWatchMessage: Equatable, Sendable {
             self = .deleteAPIKey
         case "keyStatusResponse":
             self = .keyStatusResponse(hasKey: try decodePayload(KeyStatusPayload.self, from: envelope).hasKey)
+        case "requestPendingOpenURL":
+            self = .requestPendingOpenURL
+        case "openURLResult":
+            let payload = try decodePayload(OpenURLResultPayload.self, from: envelope)
+            self = .openURLResult(success: payload.success, message: payload.message)
         case "authUnavailable":
             self = .authUnavailable(try decodePayload(MessagePayload.self, from: envelope).message)
         case "error":
@@ -96,6 +110,8 @@ public enum WatchToPhoneMessage: Equatable, Sendable {
     case keyStatusRequest
     case keyStatusResponse(hasKey: Bool)
     case reportConnectionState(RealtimeConnectionState)
+    case openURL(String)
+    case noPendingOpenURL
 
     public func envelope() throws -> MessageEnvelope {
         switch self {
@@ -109,6 +125,10 @@ public enum WatchToPhoneMessage: Equatable, Sendable {
             return try MessageEnvelope(type: "keyStatusResponse", payload: encode(KeyStatusPayload(hasKey: hasKey)))
         case .reportConnectionState(let state):
             return try MessageEnvelope(type: "reportConnectionState", payload: encode(StatePayload(state: state)))
+        case .openURL(let url):
+            return try MessageEnvelope(type: "openURL", payload: encode(URLPayload(url: url)))
+        case .noPendingOpenURL:
+            return MessageEnvelope(type: "noPendingOpenURL")
         }
     }
 
@@ -124,6 +144,10 @@ public enum WatchToPhoneMessage: Equatable, Sendable {
             self = .keyStatusResponse(hasKey: try decodePayload(KeyStatusPayload.self, from: envelope).hasKey)
         case "reportConnectionState":
             self = .reportConnectionState(try decodePayload(StatePayload.self, from: envelope).state)
+        case "openURL":
+            self = .openURL(try decodePayload(URLPayload.self, from: envelope).url)
+        case "noPendingOpenURL":
+            self = .noPendingOpenURL
         default:
             throw MessageCodingError.unknownType(envelope.type)
         }
@@ -157,6 +181,15 @@ private struct KeyStatusPayload: Codable, Equatable {
 
 private struct MessagePayload: Codable, Equatable {
     let message: String
+}
+
+private struct URLPayload: Codable, Equatable {
+    let url: String
+}
+
+private struct OpenURLResultPayload: Codable, Equatable {
+    let success: Bool
+    let message: String?
 }
 
 private struct StatePayload: Codable, Equatable {

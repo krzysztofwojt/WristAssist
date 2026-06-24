@@ -4,6 +4,7 @@ import WristAssistShared
 try testRealtimeSessionEncoding()
 try testMessageRoundTrip()
 try testServerEventDecoding()
+try testRichMockResponse()
 testPCM16Conversion()
 print("WristAssistShared smoke tests passed.")
 
@@ -39,6 +40,26 @@ private func testMessageRoundTrip() throws {
     let statusEnvelope = try MessageEnvelope(dictionary: status.envelope().dictionary())
     let decodedStatus = try WatchToPhoneMessage(envelope: statusEnvelope)
     try require(decodedStatus == status)
+
+    let openURL = WatchToPhoneMessage.openURL("https://openai.com/news")
+    let openURLEnvelope = try MessageEnvelope(dictionary: openURL.envelope().dictionary())
+    let decodedOpenURL = try WatchToPhoneMessage(envelope: openURLEnvelope)
+    try require(decodedOpenURL == openURL)
+
+    let openURLResult = PhoneToWatchMessage.openURLResult(success: true, message: nil)
+    let openURLResultEnvelope = try MessageEnvelope(dictionary: openURLResult.envelope().dictionary())
+    let decodedOpenURLResult = try PhoneToWatchMessage(envelope: openURLResultEnvelope)
+    try require(decodedOpenURLResult == openURLResult)
+
+    let pendingOpenURLRequest = PhoneToWatchMessage.requestPendingOpenURL
+    let pendingOpenURLRequestEnvelope = try MessageEnvelope(dictionary: pendingOpenURLRequest.envelope().dictionary())
+    let decodedPendingOpenURLRequest = try PhoneToWatchMessage(envelope: pendingOpenURLRequestEnvelope)
+    try require(decodedPendingOpenURLRequest == pendingOpenURLRequest)
+
+    let noPendingOpenURL = WatchToPhoneMessage.noPendingOpenURL
+    let noPendingOpenURLEnvelope = try MessageEnvelope(dictionary: noPendingOpenURL.envelope().dictionary())
+    let decodedNoPendingOpenURL = try WatchToPhoneMessage(envelope: noPendingOpenURLEnvelope)
+    try require(decodedNoPendingOpenURL == noPendingOpenURL)
 }
 
 private func testServerEventDecoding() throws {
@@ -56,6 +77,16 @@ private func testServerEventDecoding() throws {
             )
         )
     )
+}
+
+private func testRichMockResponse() throws {
+    let response = OpenAIMockResponses.richMarkdownCitationResponse(turnNumber: 1)
+    try require(response.usedWebSearch)
+    try require(response.text.contains("**bold**"))
+    try require(response.text.contains("[OpenAI News](https://openai.com/news)"))
+    try require(response.citations.count == 2)
+    try require(citedText(in: response.text, citation: response.citations[0]) == "latest OpenAI product news")
+    try require(citedText(in: response.text, citation: response.citations[1]) == "Warsaw weather alerts for Thursday")
 }
 
 private func testPCM16Conversion() {
@@ -78,6 +109,12 @@ private func require(_ condition: Bool) throws {
     guard condition else {
         throw SmokeTestError.failedRequirement
     }
+}
+
+private func citedText(in text: String, citation: ChatCitation) -> String {
+    let start = text.index(text.startIndex, offsetBy: citation.startIndex)
+    let end = text.index(text.startIndex, offsetBy: citation.endIndex)
+    return String(text[start..<end])
 }
 
 enum SmokeTestError: Error {

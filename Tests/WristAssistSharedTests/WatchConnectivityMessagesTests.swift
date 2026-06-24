@@ -62,6 +62,24 @@ struct WatchConnectivityMessagesTests {
         #expect(decoded == original)
     }
 
+    @Test func phoneOpenURLResultRoundTripsThroughDictionaryEnvelope() throws {
+        let original = PhoneToWatchMessage.openURLResult(success: false, message: "Could not open.")
+
+        let envelope = try MessageEnvelope(dictionary: original.envelope().dictionary())
+        let decoded = try PhoneToWatchMessage(envelope: envelope)
+
+        #expect(decoded == original)
+    }
+
+    @Test func phonePendingOpenURLRequestRoundTripsThroughDictionaryEnvelope() throws {
+        let original = PhoneToWatchMessage.requestPendingOpenURL
+
+        let envelope = try MessageEnvelope(dictionary: original.envelope().dictionary())
+        let decoded = try PhoneToWatchMessage(envelope: envelope)
+
+        #expect(decoded == original)
+    }
+
     @Test func watchConfigurationRequestRoundTripsThroughDictionaryEnvelope() throws {
         let original = WatchToPhoneMessage.requestConfiguration
 
@@ -91,6 +109,24 @@ struct WatchConnectivityMessagesTests {
 
     @Test func watchStateReportRoundTripsThroughDictionaryEnvelope() throws {
         let original = WatchToPhoneMessage.reportConnectionState(.listening)
+
+        let envelope = try MessageEnvelope(dictionary: original.envelope().dictionary())
+        let decoded = try WatchToPhoneMessage(envelope: envelope)
+
+        #expect(decoded == original)
+    }
+
+    @Test func watchOpenURLRoundTripsThroughDictionaryEnvelope() throws {
+        let original = WatchToPhoneMessage.openURL("https://openai.com/news")
+
+        let envelope = try MessageEnvelope(dictionary: original.envelope().dictionary())
+        let decoded = try WatchToPhoneMessage(envelope: envelope)
+
+        #expect(decoded == original)
+    }
+
+    @Test func watchNoPendingOpenURLRoundTripsThroughDictionaryEnvelope() throws {
+        let original = WatchToPhoneMessage.noPendingOpenURL
 
         let envelope = try MessageEnvelope(dictionary: original.envelope().dictionary())
         let decoded = try WatchToPhoneMessage(envelope: envelope)

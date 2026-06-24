@@ -73,7 +73,7 @@ final class SettingsViewModel: ObservableObject {
             },
             statusHandler: { [weak self] status in
                 Task { @MainActor in
-                    self?.watchStatus = status
+                    self?.applyWatchStatus(status)
                 }
             },
             errorHandler: { [weak self] message in
@@ -284,6 +284,20 @@ final class SettingsViewModel: ObservableObject {
         if !hasKey {
             pendingWatchKeyDeletion = false
             watchStatus = "Watch: API key deleted"
+            lastError = nil
+        }
+    }
+
+    private func applyWatchStatus(_ status: String) {
+        watchStatus = status
+
+        if status == "Watch: API key synced" ||
+            status == "Watch: API key deleted" ||
+            status == "Watch: Idle" ||
+            status == "Watch: Listening" ||
+            status == "Watch: Speaking"
+        {
+            lastError = nil
         }
     }
 
