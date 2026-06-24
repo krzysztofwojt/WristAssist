@@ -84,9 +84,10 @@ private func testRichMockResponse() throws {
     try require(response.usedWebSearch)
     try require(response.text.contains("**bold**"))
     try require(response.text.contains("[OpenAI News](https://openai.com/news)"))
-    try require(response.citations.count == 2)
+    try require(response.citations.count == 3)
     try require(citedText(in: response.text, citation: response.citations[0]) == "latest OpenAI product news")
     try require(citedText(in: response.text, citation: response.citations[1]) == "Warsaw weather alerts for Thursday")
+    try require(citedText(in: response.text, citation: response.citations[2]) == "duplicate source")
 }
 
 private func testPCM16Conversion() {
