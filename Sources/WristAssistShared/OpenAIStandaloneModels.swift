@@ -95,6 +95,17 @@ public struct OpenAIResponsesOutputItem: Decodable, Equatable, Sendable {
         self.type = type
         self.content = content
     }
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case content
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.type = try container.decodeIfPresent(String.self, forKey: .type)
+        self.content = try container.decodeIfPresent([OpenAIResponsesOutputContent].self, forKey: .content) ?? []
+    }
 }
 
 public struct OpenAIResponsesOutputContent: Decodable, Equatable, Sendable {

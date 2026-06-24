@@ -61,6 +61,28 @@ struct OpenAIStandaloneModelsTests {
         #expect(decoded.assistantText == "Pierwsza linia.\nDruga linia.")
     }
 
+    @Test func responsesResponseSkipsOutputItemsWithoutContent() throws {
+        let data = """
+        {
+          "output": [
+            {
+              "type": "reasoning"
+            },
+            {
+              "type": "message",
+              "content": [
+                {"type": "output_text", "text": "Gotowe."}
+              ]
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(OpenAIResponsesResponse.self, from: data)
+
+        #expect(decoded.assistantText == "Gotowe.")
+    }
+
     @Test func responsesRequestExcludesPlaceholderMessages() throws {
         let messages = [
             ChatMessage(
