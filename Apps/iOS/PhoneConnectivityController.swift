@@ -164,6 +164,12 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         }
     }
 
+    func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        Task {
+            _ = await handleTransferredMessage(userInfo)
+        }
+    }
+
     private func handleMessage(_ message: [String: Any]) async -> [String: Any] {
         do {
             let envelope = try MessageEnvelope(dictionary: message)
@@ -215,6 +221,22 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
                 errorHandler(error.localizedDescription)
             }
             return reply(.error(error.localizedDescription))
+        }
+    }
+
+    private func handleTransferredMessage(_ message: [String: Any]) async -> PhoneToWatchMessage? {
+        guard let envelope = try? MessageEnvelope(dictionary: message),
+              let decoded = try? WatchToPhoneMessage(envelope: envelope)
+        else {
+            return nil
+        }
+
+        switch decoded {
+        case .openURL(let urlString):
+            return await openURL(urlString)
+        case .requestConfiguration, .requestSettings, .keyStatusRequest, .keyStatusResponse,
+                .reportConnectionState, .noPendingOpenURL:
+            return nil
         }
     }
 
