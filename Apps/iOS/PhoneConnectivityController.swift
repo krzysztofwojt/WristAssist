@@ -10,7 +10,6 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     private let statusHandler: @MainActor (String) -> Void
     private let errorHandler: @MainActor (String) -> Void
     private let watchKeyStatusHandler: @MainActor (Bool) -> Void
-    private var pendingOpenURLPollTask: Task<Void, Never>?
 
     init(
         settingsProvider: @escaping @MainActor () -> ProviderSettings,
@@ -36,7 +35,6 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
 
         WCSession.default.delegate = self
         WCSession.default.activate()
-        startPendingOpenURLPolling()
     }
 
     func sendSettings(_ settings: ProviderSettings) {
@@ -108,9 +106,9 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         }
 
         if activationState == .activated {
-            startPendingOpenURLPolling()
-
             Task {
+                await requestPendingOpenURLIfPossible()
+
                 do {
                     sendConfiguration(try await currentConfiguration())
                     sendCurrentKeyStateToReachableWatch()
@@ -125,9 +123,10 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
 
     func sessionReachabilityDidChange(_ session: WCSession) {
         guard session.isReachable else { return }
-        startPendingOpenURLPolling()
 
         Task {
+            await requestPendingOpenURLIfPossible()
+
             do {
                 sendConfiguration(try await currentConfiguration())
                 sendCurrentKeyStateToReachableWatch()
@@ -237,17 +236,6 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
         case .requestConfiguration, .requestSettings, .keyStatusRequest, .keyStatusResponse,
                 .reportConnectionState, .noPendingOpenURL:
             return nil
-        }
-    }
-
-    private func startPendingOpenURLPolling() {
-        guard pendingOpenURLPollTask == nil else { return }
-
-        pendingOpenURLPollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 700_000_000)
-                await self?.requestPendingOpenURLIfPossible()
-            }
         }
     }
 
