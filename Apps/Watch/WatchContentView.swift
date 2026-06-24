@@ -120,6 +120,10 @@ struct WatchContentView: View {
                     }
 
                     if isMicrophoneDragActive {
+                        recordingDragScrim
+                    }
+
+                    if isMicrophoneDragActive {
                         dragTargetsOverlay(in: geometry.size)
                     }
 
@@ -234,11 +238,33 @@ struct WatchContentView: View {
                     .frame(width: dragTargetGlowSize.width, height: dragTargetGlowSize.height)
                     .position(x: lockFrame.midX, y: lockFrame.midY)
             }
+
+            dragTargetHints(in: size, lockFrame: lockFrame, cancelFrame: cancelFrame)
         }
         .frame(width: size.width, height: size.height)
         .transition(.opacity.combined(with: .scale(scale: 0.96)))
         .animation(.easeInOut(duration: 0.14), value: activeDragTarget)
         .allowsHitTesting(false)
+    }
+
+    private var recordingDragScrim: some View {
+        ZStack {
+            Color.black.opacity(0.54)
+
+            RadialGradient(
+                colors: [
+                    Color.black.opacity(0),
+                    Color.black.opacity(0.34)
+                ],
+                center: .center,
+                startRadius: 32,
+                endRadius: 132
+            )
+        }
+        .ignoresSafeArea()
+        .transition(.opacity)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private func dragTargetPad(_ target: PTTDragTarget, isActive: Bool) -> some View {
@@ -266,6 +292,105 @@ struct WatchContentView: View {
             .brightness(isActive ? 0.06 : 0)
             .animation(.spring(response: 0.18, dampingFraction: 0.66), value: isActive)
             .accessibilityHidden(true)
+    }
+
+    private func dragTargetHints(in size: CGSize, lockFrame: CGRect, cancelFrame: CGRect) -> some View {
+        let lockLabelPosition = CGPoint(
+            x: size.width / 2,
+            y: size.height * 0.43
+        )
+        let cancelLabelPosition = CGPoint(
+            x: size.width / 2,
+            y: size.height * 0.58
+        )
+
+        return ZStack {
+            if !viewModel.isRecordingLocked {
+                dragRoundedCornerInstructionArrow(
+                    from: CGPoint(x: lockLabelPosition.x + 29, y: lockLabelPosition.y),
+                    to: CGPoint(x: lockFrame.midX, y: lockFrame.midY + 28),
+                    cornerRadius: 18,
+                    tint: PTTDragTarget.lock.tint,
+                    isActive: activeDragTarget == .lock
+                )
+
+                dragInstructionLabel(
+                    "Lock",
+                    tint: PTTDragTarget.lock.tint,
+                    isActive: activeDragTarget == .lock
+                )
+                .position(lockLabelPosition)
+            }
+
+            dragRoundedCornerInstructionArrow(
+                from: CGPoint(x: cancelLabelPosition.x - 34, y: cancelLabelPosition.y),
+                to: CGPoint(x: cancelFrame.midX + 7, y: cancelFrame.midY - 32),
+                cornerRadius: 18,
+                tint: PTTDragTarget.cancel.tint,
+                isActive: activeDragTarget == .cancel
+            )
+
+            dragInstructionLabel(
+                "Cancel",
+                tint: PTTDragTarget.cancel.tint,
+                isActive: activeDragTarget == .cancel
+            )
+            .position(cancelLabelPosition)
+        }
+        .frame(width: size.width, height: size.height)
+        .accessibilityHidden(true)
+    }
+
+    private func dragInstructionLabel(_ text: String, tint: Color, isActive: Bool) -> some View {
+        Text(text)
+            .font(.system(size: isActive ? 16 : 15, weight: .bold, design: .rounded))
+            .foregroundStyle(.white.opacity(isActive ? 1 : 0.9))
+            .shadow(color: .black.opacity(1), radius: 13, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.92), radius: 5, x: 0, y: 2)
+            .shadow(color: .black.opacity(0.82), radius: 2, x: 0, y: 1)
+            .shadow(color: tint.opacity(isActive ? 0.46 : 0.22), radius: isActive ? 8 : 5, x: 0, y: 0)
+            .opacity(activeDragTarget == nil || isActive ? 1 : 0.58)
+            .scaleEffect(isActive ? 1.04 : 1)
+            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: isActive)
+    }
+
+    private func dragRoundedCornerInstructionArrow(
+        from start: CGPoint,
+        to end: CGPoint,
+        cornerRadius: CGFloat,
+        tint: Color,
+        isActive: Bool
+    ) -> some View {
+        roundedCornerArrowPath(from: start, to: end, cornerRadius: cornerRadius)
+            .stroke(
+                tint.opacity(isActive ? 0.96 : 0.72),
+                style: StrokeStyle(lineWidth: isActive ? 2.4 : 2, lineCap: .round, lineJoin: .round)
+            )
+            .shadow(color: tint.opacity(isActive ? 0.56 : 0.24), radius: isActive ? 8 : 4, x: 0, y: 0)
+            .opacity(activeDragTarget == nil || isActive ? 1 : 0.62)
+            .animation(.spring(response: 0.18, dampingFraction: 0.7), value: isActive)
+    }
+
+    private func roundedCornerArrowPath(from start: CGPoint, to end: CGPoint, cornerRadius: CGFloat) -> Path {
+        var path = Path()
+        let radius = min(cornerRadius, max(abs(start.x - end.x) - 2, 0), max(abs(end.y - start.y) - 2, 0))
+        let horizontalDirection: CGFloat = end.x >= start.x ? 1 : -1
+        let verticalDirection: CGFloat = end.y >= start.y ? 1 : -1
+        let horizontalEnd = CGPoint(x: end.x - horizontalDirection * radius, y: start.y)
+        let verticalStart = CGPoint(x: end.x, y: start.y + verticalDirection * radius)
+
+        path.move(to: start)
+        path.addLine(to: horizontalEnd)
+        path.addQuadCurve(to: verticalStart, control: CGPoint(x: end.x, y: start.y))
+        path.addLine(to: end)
+
+        let arrowLength: CGFloat = 9
+        let arrowWidth: CGFloat = 5
+        path.move(to: CGPoint(x: end.x - arrowWidth, y: end.y - verticalDirection * arrowLength))
+        path.addLine(to: end)
+        path.addLine(to: CGPoint(x: end.x + arrowWidth, y: end.y - verticalDirection * arrowLength))
+
+        return path
     }
 
     private var pushToTalkMicrophoneButton: some View {
