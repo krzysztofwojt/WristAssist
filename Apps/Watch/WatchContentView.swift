@@ -10,6 +10,7 @@ struct WatchContentView: View {
     @State private var hasPressedMicrophone = false
     @State private var isChatScrolledAwayFromBottom = false
     @State private var isProgrammaticallyScrollingToBottom = false
+    @State private var suppressedScrolledAwayState = false
     @State private var scrollToBottomSuppressionGeneration = 0
     private let bottomID = "chat-bottom"
     private let chatScrollCoordinateSpace = "watch-chat-scroll"
@@ -229,7 +230,8 @@ struct WatchContentView: View {
     private var shouldShowScrollToBottomButton: Bool {
         isChatScrolledAwayFromBottom &&
             !viewModel.messages.isEmpty &&
-            !isMicrophoneDragActive
+            !isMicrophoneDragActive &&
+            !viewModel.isPushToTalkRecording
     }
 
     private func emptyPromptOverlay(in size: CGSize) -> some View {
@@ -690,6 +692,7 @@ struct WatchContentView: View {
         if hideIndicatorDuringScroll {
             isProgrammaticallyScrollingToBottom = true
             isChatScrolledAwayFromBottom = false
+            suppressedScrolledAwayState = false
             scrollToBottomSuppressionGeneration += 1
             suppressionGeneration = scrollToBottomSuppressionGeneration
         } else {
@@ -705,6 +708,11 @@ struct WatchContentView: View {
                 try? await Task.sleep(nanoseconds: 320_000_000)
                 if scrollToBottomSuppressionGeneration == suppressionGeneration {
                     isProgrammaticallyScrollingToBottom = false
+                    if suppressedScrolledAwayState {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            isChatScrolledAwayFromBottom = true
+                        }
+                    }
                 }
             }
         }
@@ -713,8 +721,10 @@ struct WatchContentView: View {
     private func updateScrolledAwayState(bottomY: CGFloat, viewportHeight: CGFloat) {
         let isAway = bottomY > viewportHeight + 14
         if isProgrammaticallyScrollingToBottom {
+            suppressedScrolledAwayState = isAway
             if !isAway {
                 isProgrammaticallyScrollingToBottom = false
+                suppressedScrolledAwayState = false
             }
             if isChatScrolledAwayFromBottom {
                 withAnimation(.easeInOut(duration: 0.16)) {
