@@ -26,6 +26,8 @@ struct OpenAIStandaloneModelsTests {
         let text = try #require(object["text"] as? [String: Any])
         #expect(text["verbosity"] as? String == "low")
 
+        #expect(object["store"] as? Bool == false)
+
         let input = try #require(object["input"] as? [[String: Any]])
         #expect(input.count == 2)
         #expect(input[0]["role"] as? String == "user")

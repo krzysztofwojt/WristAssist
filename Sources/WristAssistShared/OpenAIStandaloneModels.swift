@@ -5,6 +5,7 @@ public struct OpenAIResponsesRequest: Encodable, Equatable, Sendable {
     public var instructions: String?
     public var reasoning: OpenAIReasoningOptions
     public var text: OpenAITextOptions
+    public var store: Bool
     public var input: [OpenAIResponsesInputMessage]
 
     public init(
@@ -16,6 +17,7 @@ public struct OpenAIResponsesRequest: Encodable, Equatable, Sendable {
         self.instructions = instructions?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
         self.reasoning = OpenAIReasoningOptions(effort: "low")
         self.text = OpenAITextOptions(verbosity: "low")
+        self.store = false
         self.input = messages
             .filter { !$0.isPlaceholder }
             .map(OpenAIResponsesInputMessage.init(message:))
