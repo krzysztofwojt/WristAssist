@@ -154,7 +154,8 @@ struct OpenAIStandaloneModelsTests {
         #expect(response.text.contains("[Apple Developer watchOS docs](https://developer.apple.com/watchos/)"))
         #expect(response.text.contains("```swift"))
         #expect(response.text.contains("---"))
-        #expect(response.text.contains("| Format | Status |"))
+        #expect(response.text.contains("| Format | Status | Source | Notes |"))
+        #expect(response.text.contains("| Link | Hidden URL | [OpenAI](https://openai.com/news) | Scroll sideways"))
         #expect(response.citations.count == 2)
 
         let citedText = try response.citations.map { try substring(in: response.text, citation: $0) }

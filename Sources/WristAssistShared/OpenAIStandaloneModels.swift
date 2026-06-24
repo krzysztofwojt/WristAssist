@@ -190,9 +190,9 @@ public enum OpenAIMockResponses {
 
         ---
 
-        | Format | Status |
-        |---|---|
-        | Link | Hidden URL |
+        | Format | Status | Source | Notes |
+        |---|---|---|---|
+        | Link | Hidden URL | [OpenAI](https://openai.com/news) | Scroll sideways to inspect this longer table cell |
 
         > Blockquote text stays compact on watchOS, and the source action should open on iPhone.
         """

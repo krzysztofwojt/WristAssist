@@ -278,7 +278,57 @@ struct WatchContentView: View {
                 .fill(Color.white.opacity(0.24))
                 .frame(height: 1)
                 .padding(.vertical, 3)
+        case .table:
+            if let table = segment.table {
+                markdownTable(table)
+            }
         }
+    }
+
+    private func markdownTable(_ table: RenderedMarkdownTable) -> some View {
+        ScrollView(.horizontal) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(table.rows.indices, id: \.self) { rowIndex in
+                    let row = table.rows[rowIndex]
+
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(row.cells.indices, id: \.self) { cellIndex in
+                            markdownTableCell(row.cells[cellIndex], isHeader: row.isHeader)
+                        }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 1)
+            )
+        }
+        .scrollIndicators(.hidden)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("Markdown table")
+    }
+
+    private func markdownTableCell(_ text: AttributedString, isHeader: Bool) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: isHeader ? .semibold : .medium))
+            .lineSpacing(1)
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.leading)
+            .frame(minWidth: 72, maxWidth: 118, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(isHeader ? Color.white.opacity(0.12) : Color.white.opacity(0.06))
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(height: 1)
+            }
     }
 
     private var isCitationOpenFailurePresented: Binding<Bool> {
@@ -329,8 +379,12 @@ struct WatchContentView: View {
         var segments: [WatchDisplayMarkdownSegment] = []
         var codeBlockLines: [String] = []
         var isInsideCodeBlock = false
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        var lineIndex = 0
 
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        while lineIndex < lines.count {
+            let line = lines[lineIndex]
+
             if isInsideCodeBlock {
                 if isMarkdownCodeFence(line) {
                     appendDisplayMarkdownSegment(
@@ -344,11 +398,24 @@ struct WatchContentView: View {
                     codeBlockLines.append(String(line))
                 }
 
+                lineIndex += 1
                 continue
             }
 
             if isMarkdownCodeFence(line) {
                 isInsideCodeBlock = true
+                lineIndex += 1
+                continue
+            }
+
+            if let tableResult = markdownTableSegment(startingAt: lineIndex, in: lines) {
+                appendDisplayMarkdownSegment(
+                    markdown: tableResult.table.displayMarkdown,
+                    kind: .table,
+                    table: tableResult.table,
+                    to: &segments
+                )
+                lineIndex = tableResult.nextLineIndex
                 continue
             }
 
@@ -358,6 +425,8 @@ struct WatchContentView: View {
                 kind: displayLine.kind,
                 to: &segments
             )
+
+            lineIndex += 1
         }
 
         if isInsideCodeBlock {
@@ -374,17 +443,21 @@ struct WatchContentView: View {
     private func appendDisplayMarkdownSegment(
         markdown: String,
         kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil,
         to segments: inout [WatchDisplayMarkdownSegment]
     ) {
         if let lastSegment = segments.last,
            lastSegment.kind == kind,
+           lastSegment.table == nil,
+           table == nil,
            kind.canMergeAdjacentLines {
             segments[segments.count - 1].markdown += "\n\(markdown)"
         } else {
             segments.append(
                 WatchDisplayMarkdownSegment(
                     markdown: markdown,
-                    kind: kind
+                    kind: kind,
+                    table: table
                 )
             )
         }
@@ -440,6 +513,86 @@ struct WatchContentView: View {
         }
 
         return compactLine.allSatisfy { $0 == marker }
+    }
+
+    private func markdownTableSegment(
+        startingAt lineIndex: Int,
+        in lines: [Substring]
+    ) -> (table: WatchDisplayMarkdownTable, nextLineIndex: Int)? {
+        guard lineIndex + 1 < lines.count,
+              let headerCells = markdownTableCells(in: lines[lineIndex]),
+              headerCells.count >= 2,
+              isMarkdownTableSeparator(lines[lineIndex + 1], columnCount: headerCells.count)
+        else {
+            return nil
+        }
+
+        var rows = [headerCells]
+        var nextLineIndex = lineIndex + 2
+
+        while nextLineIndex < lines.count,
+              let cells = markdownTableCells(in: lines[nextLineIndex]) {
+            rows.append(normalizedMarkdownTableCells(cells, columnCount: headerCells.count))
+            nextLineIndex += 1
+        }
+
+        return (
+            table: WatchDisplayMarkdownTable(rows: rows),
+            nextLineIndex: nextLineIndex
+        )
+    }
+
+    private func markdownTableCells(in line: Substring) -> [String]? {
+        var tableLine = String(line).trimmingCharacters(in: .whitespaces)
+        guard tableLine.contains("|") else { return nil }
+
+        if tableLine.first == "|" {
+            tableLine.removeFirst()
+        }
+
+        if tableLine.last == "|" {
+            tableLine.removeLast()
+        }
+
+        let cells = tableLine
+            .split(separator: "|", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        guard cells.count >= 2 else { return nil }
+        return cells
+    }
+
+    private func normalizedMarkdownTableCells(_ cells: [String], columnCount: Int) -> [String] {
+        if cells.count == columnCount {
+            return cells
+        }
+
+        if cells.count > columnCount {
+            return Array(cells.prefix(columnCount))
+        }
+
+        return cells + Array(repeating: "", count: columnCount - cells.count)
+    }
+
+    private func isMarkdownTableSeparator(_ line: Substring, columnCount: Int) -> Bool {
+        guard let cells = markdownTableCells(in: line),
+              cells.count == columnCount
+        else {
+            return false
+        }
+
+        return cells.allSatisfy(isMarkdownTableSeparatorCell)
+    }
+
+    private func isMarkdownTableSeparatorCell(_ cell: String) -> Bool {
+        let compactCell = cell.filter { !$0.isWhitespace }
+        let dashCount = compactCell.filter { $0 == "-" }.count
+
+        guard dashCount >= 3 else { return false }
+
+        return compactCell.allSatisfy { character in
+            character == "-" || character == ":"
+        }
     }
 
     private func markdownHeadingText(in line: Substring, from startIndex: Substring.Index) -> String? {
@@ -501,7 +654,8 @@ struct WatchContentView: View {
                 renderedSegments.append(
                     renderedSegment(
                         from: AttributedString(attributed[range]),
-                        kind: displaySegment.kind
+                        kind: displaySegment.kind,
+                        table: displaySegment.table
                     )
                 )
             }
@@ -524,11 +678,72 @@ struct WatchContentView: View {
 
     private func renderedSegment(
         from attributed: AttributedString,
-        kind: RenderedMessageSegmentKind
+        kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil
     ) -> RenderedMessageSegment {
+        if let table {
+            return RenderedMessageSegment(
+                text: attributed,
+                kind: kind,
+                table: renderedMarkdownTable(from: attributed, sourceTable: table)
+            )
+        }
+
         var text = attributed
         appendLinkMarkers(to: &text)
         return RenderedMessageSegment(text: text, kind: kind)
+    }
+
+    private func renderedMarkdownTable(
+        from attributed: AttributedString,
+        sourceTable: WatchDisplayMarkdownTable
+    ) -> RenderedMarkdownTable {
+        var rowOffset = 0
+        var rows: [RenderedMarkdownTableRow] = []
+
+        for (rowIndex, sourceRow) in sourceTable.rows.enumerated() {
+            var cellOffset = rowOffset
+            var cells: [AttributedString] = []
+
+            for (cellIndex, cellMarkdown) in sourceRow.enumerated() {
+                let cellLength = markdownAttributedString(from: cellMarkdown).characters.count
+
+                if let range = attributedRange(
+                    in: attributed,
+                    lowerOffset: cellOffset,
+                    upperOffset: cellOffset + cellLength
+                ) {
+                    var cellText = AttributedString(attributed[range])
+                    appendLinkMarkers(to: &cellText)
+                    cells.append(cellText)
+                } else {
+                    var fallbackText = markdownAttributedString(from: cellMarkdown)
+                    appendLinkMarkers(to: &fallbackText)
+                    cells.append(fallbackText)
+                }
+
+                cellOffset += cellLength
+
+                if cellIndex < sourceRow.count - 1 {
+                    cellOffset += 1
+                }
+            }
+
+            rows.append(
+                RenderedMarkdownTableRow(
+                    cells: cells,
+                    isHeader: rowIndex == 0
+                )
+            )
+
+            rowOffset = cellOffset
+
+            if rowIndex < sourceTable.rows.count - 1 {
+                rowOffset += 1
+            }
+        }
+
+        return RenderedMarkdownTable(rows: rows)
     }
 
     private func applyCitationLinks(
@@ -1310,11 +1525,33 @@ private struct RenderedMessageText {
 private struct RenderedMessageSegment {
     var text: AttributedString
     var kind: RenderedMessageSegmentKind
+    var table: RenderedMarkdownTable?
+
+    init(
+        text: AttributedString,
+        kind: RenderedMessageSegmentKind,
+        table: RenderedMarkdownTable? = nil
+    ) {
+        self.text = text
+        self.kind = kind
+        self.table = table
+    }
 }
 
 private struct WatchDisplayMarkdownSegment {
     var markdown: String
     var kind: RenderedMessageSegmentKind
+    var table: WatchDisplayMarkdownTable?
+
+    init(
+        markdown: String,
+        kind: RenderedMessageSegmentKind,
+        table: WatchDisplayMarkdownTable? = nil
+    ) {
+        self.markdown = markdown
+        self.kind = kind
+        self.table = table
+    }
 }
 
 private struct WatchDisplayMarkdownLine {
@@ -1328,15 +1565,35 @@ private enum RenderedMessageSegmentKind: Equatable {
     case blockquote
     case codeBlock
     case horizontalRule
+    case table
 
     var canMergeAdjacentLines: Bool {
         switch self {
         case .body, .blockquote, .codeBlock:
             return true
-        case .heading, .horizontalRule:
+        case .heading, .horizontalRule, .table:
             return false
         }
     }
+}
+
+private struct WatchDisplayMarkdownTable {
+    var rows: [[String]]
+
+    var displayMarkdown: String {
+        rows
+            .map { $0.joined(separator: "\t") }
+            .joined(separator: "\n")
+    }
+}
+
+private struct RenderedMarkdownTable {
+    var rows: [RenderedMarkdownTableRow]
+}
+
+private struct RenderedMarkdownTableRow {
+    var cells: [AttributedString]
+    var isHeader: Bool
 }
 
 private struct LinkMarker {
