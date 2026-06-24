@@ -273,6 +273,10 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
             return .openURLResult(success: false, message: "Source URL is invalid.")
         }
 
+        guard Self.isWebURL(url) else {
+            return .openURLResult(success: false, message: "Only web source URLs can be opened.")
+        }
+
         return await withCheckedContinuation { continuation in
             Task { @MainActor in
                 UIApplication.shared.open(url, options: [:]) { success in
@@ -285,6 +289,11 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
                 }
             }
         }
+    }
+
+    private static func isWebURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        return scheme == "http" || scheme == "https"
     }
 
     private func currentConfiguration() async throws -> WatchConfiguration {
