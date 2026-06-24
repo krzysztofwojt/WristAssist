@@ -34,6 +34,8 @@ final class WatchPTTRecorder {
             throw WatchPTTRecorderError.microphoneDenied
         }
 
+        guard !isRecording else { return }
+        guard activeRecorder == nil else { return }
         try ensureStartIsCurrent(startID)
 
         do {
