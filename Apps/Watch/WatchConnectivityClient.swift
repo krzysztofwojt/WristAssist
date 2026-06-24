@@ -79,7 +79,7 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
                 throw WatchConnectivityClientError.remote(message)
             }
         } catch {
-            guard Self.isCompanionAppUnavailable(error) else {
+            guard Self.shouldQueuePendingOpenURL(for: error) else {
                 throw error
             }
 
@@ -227,7 +227,11 @@ final class WatchConnectivityClient: NSObject, WCSessionDelegate {
         return urlString
     }
 
-    private static func isCompanionAppUnavailable(_ error: Error) -> Bool {
+    private static func shouldQueuePendingOpenURL(for error: Error) -> Bool {
+        if case WatchConnectivityClientError.phoneUnreachable = error {
+            return true
+        }
+
         if case WatchConnectivityClientError.remote(let message) = error {
             return message == "Companion app is not installed."
         }

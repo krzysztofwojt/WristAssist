@@ -38,10 +38,13 @@ struct OpenAIResponsesClient {
 
         let decoded = try JSONDecoder().decode(OpenAIResponsesResponse.self, from: data)
         var assistantResponse = decoded.assistantResponse
-        assistantResponse.text = assistantResponse.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let text = assistantResponse.text
-        guard !text.isEmpty else {
+        let trimmedText = assistantResponse.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else {
             throw WatchOpenAIClientError.emptyResponse
+        }
+
+        if assistantResponse.citations.isEmpty {
+            assistantResponse.text = trimmedText
         }
 
         return assistantResponse

@@ -135,6 +135,40 @@ struct OpenAIStandaloneModelsTests {
         ])
     }
 
+    @Test func responsesResponsePreservesCitationOffsetsWithSurroundingWhitespace() throws {
+        let data = """
+        {
+          "output": [
+            {
+              "type": "message",
+              "content": [
+                {
+                  "type": "output_text",
+                  "text": "\\nOpenAI released a new model today.\\n",
+                  "annotations": [
+                    {
+                      "type": "url_citation",
+                      "start_index": 1,
+                      "end_index": 7,
+                      "url": "https://openai.com/news",
+                      "title": "OpenAI News"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(OpenAIResponsesResponse.self, from: data)
+        let response = decoded.assistantResponse
+        let citation = try #require(response.citations.first)
+
+        #expect(response.text == "\nOpenAI released a new model today.\n")
+        #expect(try substring(in: response.text, citation: citation) == "OpenAI")
+    }
+
     @Test func richMockResponseIncludesMarkdownLinksAndWebCitations() throws {
         let response = OpenAIMockResponses.richMarkdownCitationResponse(turnNumber: 7)
 
