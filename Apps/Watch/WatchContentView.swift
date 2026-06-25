@@ -12,10 +12,13 @@ struct WatchContentView: View {
     @State private var isProgrammaticallyScrollingToBottom = false
     @State private var suppressedScrolledAwayState = false
     @State private var scrollToBottomSuppressionGeneration = 0
+    @State private var assistantResponseTopFocusID: UUID?
+    @State private var assistantResponseTopLockID: UUID?
     @State private var selectedCitation: ChatCitation?
     @State private var citationOpenFailure: String?
     private let bottomID = "chat-bottom"
     private let chatScrollCoordinateSpace = "watch-chat-scroll"
+    private let chatTopReadableInset: CGFloat = 46
     private let chatBottomReadableInset: CGFloat = 78
     private let chatAccentColor = Color(red: 0.07, green: 0.46, blue: 1)
     private let microphoneButtonSize = CGSize(width: 66, height: 44)
@@ -111,6 +114,17 @@ struct WatchContentView: View {
                         VStack(spacing: 8) {
                             ForEach(viewModel.messages) { message in
                                 messageBubble(message)
+                                    .background {
+                                        if message.id == assistantResponseTopFocusID {
+                                            GeometryReader { messageProxy in
+                                                Color.clear
+                                                    .preference(
+                                                        key: AssistantResponseFramePreferenceKey.self,
+                                                        value: messageProxy.frame(in: .named(chatScrollCoordinateSpace))
+                                                    )
+                                            }
+                                        }
+                                    }
                                     .id(message.id)
                             }
 
@@ -131,19 +145,35 @@ struct WatchContentView: View {
                         .padding(.top, 6)
                         .frame(minHeight: geometry.size.height, alignment: .bottom)
                     }
+                    .contentMargins(.top, chatTopReadableInset, for: .scrollContent)
                     .scrollIndicators(.hidden)
                     .coordinateSpace(name: chatScrollCoordinateSpace)
                     .onPreferenceChange(ChatBottomYPreferenceKey.self) { bottomY in
                         updateScrolledAwayState(bottomY: bottomY, viewportHeight: geometry.size.height)
                     }
+                    .onPreferenceChange(AssistantResponseFramePreferenceKey.self) { frame in
+                        followAssistantResponseIfNeeded(frame: frame, proxy: proxy)
+                    }
                     .onAppear {
                         scrollToBottom(proxy, hideIndicatorDuringScroll: true)
                     }
-                    .onChange(of: viewModel.messages) { _, _ in
-                        scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+                    .onChange(of: viewModel.messages) { oldMessages, newMessages in
+                        scrollForMessageChange(from: oldMessages, to: newMessages, proxy: proxy)
                     }
                     .onChange(of: viewModel.pttState) { _, newState in
-                        scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+                        if newState == .recording {
+                            assistantResponseTopFocusID = nil
+                            assistantResponseTopLockID = nil
+                        }
+
+                        if newState == .ready {
+                            assistantResponseTopFocusID = nil
+                            assistantResponseTopLockID = nil
+                        }
+
+                        if newState != .ready {
+                            scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+                        }
 
                         if newState != .recording {
                             resetMicrophoneDrag()
@@ -168,6 +198,8 @@ struct WatchContentView: View {
 
                     if shouldShowScrollToBottomButton {
                         scrollToBottomButton {
+                            assistantResponseTopFocusID = nil
+                            assistantResponseTopLockID = nil
                             scrollToBottom(proxy, hideIndicatorDuringScroll: true)
                         }
                         .position(scrollToBottomButtonPosition(in: geometry.size))
@@ -1500,6 +1532,123 @@ struct WatchContentView: View {
         }
     }
 
+    private func scrollForMessageChange(
+        from oldMessages: [ChatMessage],
+        to newMessages: [ChatMessage],
+        proxy: ScrollViewProxy
+    ) {
+        if let assistantPlaceholderID = assistantPlaceholderAddedID(from: oldMessages, to: newMessages) {
+            assistantResponseTopFocusID = assistantPlaceholderID
+            assistantResponseTopLockID = nil
+            scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+            return
+        }
+
+        if let assistantMessageID = assistantResponseReadyID(from: oldMessages, to: newMessages) {
+            assistantResponseTopFocusID = assistantMessageID
+            assistantResponseTopLockID = nil
+            scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+            return
+        }
+
+        if isAssistantResponseStreamingUpdate(from: oldMessages, to: newMessages) {
+            return
+        }
+
+        if newMessages.last?.role != .assistant {
+            assistantResponseTopFocusID = nil
+            assistantResponseTopLockID = nil
+        }
+
+        scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+    }
+
+    private func assistantPlaceholderAddedID(from oldMessages: [ChatMessage], to newMessages: [ChatMessage]) -> UUID? {
+        guard newMessages.count > oldMessages.count else { return nil }
+
+        for newMessage in newMessages.reversed() where newMessage.role == .assistant && newMessage.isPlaceholder {
+            guard !oldMessages.contains(where: { $0.id == newMessage.id }) else { continue }
+            return newMessage.id
+        }
+
+        return nil
+    }
+
+    private func assistantResponseReadyID(from oldMessages: [ChatMessage], to newMessages: [ChatMessage]) -> UUID? {
+        for newMessage in newMessages.reversed() where newMessage.role == .assistant && !newMessage.isPlaceholder {
+            guard let oldMessage = oldMessages.first(where: { $0.id == newMessage.id }) else {
+                if newMessages.count > oldMessages.count {
+                    return newMessage.id
+                }
+
+                continue
+            }
+
+            if oldMessage.role == .assistant && oldMessage.isPlaceholder {
+                return newMessage.id
+            }
+        }
+
+        return nil
+    }
+
+    private func isAssistantResponseStreamingUpdate(from oldMessages: [ChatMessage], to newMessages: [ChatMessage]) -> Bool {
+        guard oldMessages.count == newMessages.count else { return false }
+
+        let changedMessages = zip(oldMessages, newMessages).filter { oldMessage, newMessage in
+            oldMessage != newMessage
+        }
+        guard changedMessages.count == 1,
+              let (oldMessage, newMessage) = changedMessages.first,
+              oldMessage.id == newMessage.id,
+              oldMessage.role == .assistant,
+              newMessage.role == .assistant,
+              !oldMessage.isPlaceholder,
+              !newMessage.isPlaceholder
+        else {
+            return false
+        }
+
+        return newMessage.text.hasPrefix(oldMessage.text) ||
+            oldMessage.text.hasPrefix(newMessage.text) ||
+            oldMessage.citations != newMessage.citations
+    }
+
+    private func followAssistantResponseIfNeeded(frame: CGRect?, proxy: ScrollViewProxy) {
+        guard let frame,
+              let assistantResponseTopFocusID,
+              let latestMessage = viewModel.messages.last,
+              latestMessage.id == assistantResponseTopFocusID,
+              latestMessage.role == .assistant
+        else {
+            return
+        }
+
+        let targetTopY = chatTopReadableInset + 4
+        if assistantResponseTopLockID == assistantResponseTopFocusID {
+            scrollToAssistantResponseTop(assistantResponseTopFocusID, proxy: proxy, animated: false)
+            return
+        }
+
+        guard frame.minY > targetTopY + 3 else {
+            assistantResponseTopLockID = assistantResponseTopFocusID
+            scrollToAssistantResponseTop(assistantResponseTopFocusID, proxy: proxy, animated: true)
+            return
+        }
+
+        scrollToBottom(proxy, hideIndicatorDuringScroll: true)
+    }
+
+    private func scrollToAssistantResponseTop(_ id: UUID, proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.18)) {
+                proxy.scrollTo(id, anchor: .top)
+            }
+        } else {
+            proxy.scrollTo(id, anchor: .top)
+        }
+    }
+
     private func scrollToBottom(_ proxy: ScrollViewProxy, hideIndicatorDuringScroll: Bool = false) {
         let suppressionGeneration: Int?
 
@@ -1561,6 +1710,14 @@ private struct ChatBottomYPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+private struct AssistantResponseFramePreferenceKey: PreferenceKey {
+    static var defaultValue: CGRect?
+
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
     }
 }
 
