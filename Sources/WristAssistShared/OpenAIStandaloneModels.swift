@@ -306,11 +306,11 @@ private struct OpenAIResponsesStreamEvent {
             throw OpenAIResponsesStreamError.invalidEvent("OpenAI returned a non-UTF-8 streaming event.")
         }
 
-        let decodedObject: Any?
+        let decodedObject: Any
         do {
             decodedObject = try JSONSerialization.jsonObject(with: data)
         } catch {
-            guard let type = Self.eventType(in: rawPayload) else {
+            guard let type = Self.malformedControlEventType(in: rawPayload) else {
                 throw OpenAIResponsesStreamError.invalidEvent("OpenAI returned a streaming event without a type: \(Self.payloadSnippet(from: data))")
             }
 
@@ -325,18 +325,7 @@ private struct OpenAIResponsesStreamEvent {
         }
 
         guard let payload = decodedObject as? [String: Any] else {
-            guard let type = Self.eventType(in: rawPayload) else {
-                throw OpenAIResponsesStreamError.invalidEvent("OpenAI returned a streaming event without a type: \(Self.payloadSnippet(from: data))")
-            }
-
-            guard !Self.requiresPayload(for: type) else {
-                throw OpenAIResponsesStreamError.invalidEvent("OpenAI returned a streaming event in an unexpected format: \(Self.payloadSnippet(from: data))")
-            }
-
-            self.type = type
-            self.payload = nil
-            self.summary = OpenAIResponsesStreamEventSummary(type: type, payloadByteCount: data.count)
-            return
+            throw OpenAIResponsesStreamError.invalidEvent("OpenAI returned a streaming event in an unexpected format: \(Self.payloadSnippet(from: data))")
         }
 
         guard let type = payload["type"] as? String, !type.isEmpty else {
@@ -405,7 +394,7 @@ private struct OpenAIResponsesStreamEvent {
         }
     }
 
-    private static func eventType(in rawPayload: String) -> String? {
+    private static func malformedControlEventType(in rawPayload: String) -> String? {
         guard let typeKeyRange = rawPayload.range(of: #""type""#),
               let colonIndex = rawPayload[typeKeyRange.upperBound...].firstIndex(of: ":")
         else {
