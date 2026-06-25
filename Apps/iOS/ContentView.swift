@@ -62,9 +62,15 @@ struct ContentView: View {
                 }
 
                 Section("Personalization") {
-                    Picker("Voice", selection: $viewModel.voice) {
-                        ForEach(ProviderSettings.supportedVoices) { voice in
-                            Text(voice.displayName).tag(voice.apiValue)
+                    Picker("Response model", selection: $viewModel.assistantModel) {
+                        ForEach(ProviderSettings.supportedAssistantModels) { model in
+                            Text(model.displayName).tag(model.apiValue)
+                        }
+                    }
+
+                    Picker("Transcription", selection: $viewModel.transcriptionModel) {
+                        ForEach(ProviderSettings.supportedTranscriptionModels) { model in
+                            Text(model.displayName).tag(model.apiValue)
                         }
                     }
 
