@@ -66,6 +66,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				000000000000000000000125 /* WristAssist Watch Complication Extension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -235,6 +236,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				000000000000000000000504 /* PBXTargetDependency */,
 			);
 			name = "WristAssist Watch App";
 			packageProductDependencies = (
