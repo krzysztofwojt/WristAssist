@@ -4,7 +4,12 @@ import Testing
 
 struct WatchConnectivityMessagesTests {
     @Test func phoneConfigurationRoundTripsWithoutAPIKeyPayload() throws {
-        let settings = ProviderSettings(hasAPIKey: false, model: "gpt-realtime-2", voice: "marin")
+        let settings = ProviderSettings(
+            hasAPIKey: false,
+            model: "gpt-5.4-mini",
+            transcriptionModel: "gpt-4o-transcribe",
+            voice: "marin"
+        )
         let configuration = WatchConfiguration(settings: settings, hasAPIKey: true)
         let original = PhoneToWatchMessage.configurationChanged(configuration)
 
@@ -18,6 +23,8 @@ struct WatchConnectivityMessagesTests {
         let payloadString = try #require(String(data: payload, encoding: .utf8))
         #expect(!payloadString.contains("apiKey"))
         #expect(!payloadString.contains("sk-"))
+        #expect(payloadString.contains("gpt-5.4-mini"))
+        #expect(payloadString.contains("gpt-4o-transcribe"))
     }
 
     @Test func phoneSettingsRoundTripsWithoutAPIKeyPayload() throws {

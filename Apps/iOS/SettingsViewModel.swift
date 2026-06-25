@@ -4,7 +4,10 @@ import WristAssistShared
 @MainActor
 final class SettingsViewModel: ObservableObject {
     @Published var apiKeyDraft: String
-    @Published var voice: String {
+    @Published var assistantModel: String {
+        didSet { refreshUnsavedSettingsChanges() }
+    }
+    @Published var transcriptionModel: String {
         didSet { refreshUnsavedSettingsChanges() }
     }
     @Published var instructions: String {
@@ -48,7 +51,8 @@ final class SettingsViewModel: ObservableObject {
         self.apiKeyDraft = savedAPIKey
         self.savedAPIKey = savedAPIKey
         self.settings = storedSettings
-        self.voice = storedSettings.voice
+        self.assistantModel = storedSettings.model
+        self.transcriptionModel = storedSettings.transcriptionModel
         self.instructions = storedSettings.instructions
         self.lastError = initialError
         refreshUnsavedSettingsChanges()
@@ -209,7 +213,8 @@ final class SettingsViewModel: ObservableObject {
         settings = newSettings
 
         if syncDraft {
-            voice = settings.voice
+            assistantModel = settings.model
+            transcriptionModel = settings.transcriptionModel
             instructions = settings.instructions
         }
 
@@ -226,8 +231,9 @@ final class SettingsViewModel: ObservableObject {
         ProviderSettings(
             selectedAuthMode: .openAIAPIKey,
             hasAPIKey: hasAPIKey,
-            model: ProviderSettings.defaultModel,
-            voice: voice,
+            model: assistantModel,
+            transcriptionModel: transcriptionModel,
+            voice: settings.voice,
             instructions: instructions
         )
     }
@@ -240,7 +246,8 @@ final class SettingsViewModel: ObservableObject {
         ProviderSettings(
             selectedAuthMode: .openAIAPIKey,
             hasAPIKey: hasAPIKey,
-            model: ProviderSettings.defaultModel,
+            model: settings.model,
+            transcriptionModel: settings.transcriptionModel,
             voice: settings.voice,
             instructions: settings.instructions
         )

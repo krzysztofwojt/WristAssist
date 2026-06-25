@@ -511,7 +511,11 @@ final class WatchVoiceViewModel: ObservableObject {
             return openAITestMode.transcript(durationMilliseconds: file.durationMilliseconds)
         }
 
-        return try await transcriptionClient.transcribe(audioURL: file.url, apiKey: apiKey)
+        return try await transcriptionClient.transcribe(
+            audioURL: file.url,
+            apiKey: apiKey,
+            model: settings.transcriptionModel
+        )
     }
 
     func openCitationOnPhone(_ citation: ChatCitation) async -> String? {
