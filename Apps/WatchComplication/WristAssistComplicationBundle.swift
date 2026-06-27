@@ -65,6 +65,7 @@ private struct WristAssistComplicationView: View {
             HStack(spacing: 6) {
                 icon
                     .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
 
                 Text("WristAssist")
                     .font(.headline)
@@ -80,15 +81,18 @@ private struct WristAssistComplicationView: View {
             icon
                 .frame(width: 30, height: 30)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel("WristAssist")
 
         case .accessoryCorner:
             icon
                 .frame(width: 28, height: 28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel("WristAssist")
 
         default:
             icon
                 .frame(width: 30, height: 30)
+                .accessibilityLabel("WristAssist")
         }
     }
 
@@ -96,7 +100,6 @@ private struct WristAssistComplicationView: View {
         WristAssistLogoMark()
             .aspectRatio(1, contentMode: .fit)
             .widgetAccentable(false)
-            .accessibilityHidden(true)
     }
 }
 
