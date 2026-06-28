@@ -1,5 +1,5 @@
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct SecretRedactorTests {
     @Test func redactsOpenAIAPIKeysAndBearerTokens() {

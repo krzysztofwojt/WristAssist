@@ -1,10 +1,10 @@
 import Foundation
 import os
-import WristAssistShared
+import NadgarShared
 
 struct OpenAITranscriptionClient {
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.nadgar.Nadgar.watchkitapp",
         category: "OpenAITranscriptionClient"
     )
 

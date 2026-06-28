@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-import WristAssistShared
+import NadgarShared
 
 struct ContentView: View {
     @ObservedObject var viewModel: SettingsViewModel
@@ -107,7 +107,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationTitle("WristAssist")
+            .navigationTitle("Nadgar")
             .navigationBarTitleDisplayMode(.inline)
             .animation(.default, value: viewModel.isAutoReadEnabled)
         }

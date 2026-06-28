@@ -7,28 +7,28 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		000000000000000000000101 /* WristAssistApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000201 /* WristAssistApp.swift */; };
+		000000000000000000000101 /* NadgarApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000201 /* NadgarApp.swift */; };
 		000000000000000000000102 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000202 /* ContentView.swift */; };
 		000000000000000000000103 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000203 /* SettingsViewModel.swift */; };
 		000000000000000000000104 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000204 /* KeychainCredentialStore.swift */; };
 		000000000000000000000105 /* OpenAIAPIKeyValidationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000205 /* OpenAIAPIKeyValidationService.swift */; };
 		000000000000000000000107 /* PhoneConnectivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000207 /* PhoneConnectivityController.swift */; };
-		000000000000000000000108 /* WristAssistShared in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000401 /* WristAssistShared */; };
-		000000000000000000000109 /* WristAssist Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 000000000000000000000302 /* WristAssist Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		000000000000000000000111 /* WristAssistWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000211 /* WristAssistWatchApp.swift */; };
+		000000000000000000000108 /* NadgarShared in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000401 /* NadgarShared */; };
+		000000000000000000000109 /* Nadgar Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 000000000000000000000302 /* Nadgar Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		000000000000000000000111 /* NadgarWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000211 /* NadgarWatchApp.swift */; };
 		000000000000000000000112 /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000212 /* WatchContentView.swift */; };
 		000000000000000000000113 /* WatchVoiceViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000213 /* WatchVoiceViewModel.swift */; };
 		000000000000000000000114 /* WatchConnectivityClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000214 /* WatchConnectivityClient.swift */; };
 		000000000000000000000116 /* WatchAudioPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000216 /* WatchAudioPipeline.swift */; };
-		000000000000000000000117 /* WristAssistShared in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000401 /* WristAssistShared */; };
+		000000000000000000000117 /* NadgarShared in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000401 /* NadgarShared */; };
 		000000000000000000000118 /* WatchPTTRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000218 /* WatchPTTRecorder.swift */; };
 		000000000000000000000119 /* OpenAITranscriptionClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000219 /* OpenAITranscriptionClient.swift */; };
 		000000000000000000000120 /* OpenAIResponsesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000220 /* OpenAIResponsesClient.swift */; };
 		000000000000000000000121 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000221 /* Assets.xcassets */; };
 		000000000000000000000122 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000222 /* Assets.xcassets */; };
-		000000000000000000000123 /* WristAssistComplicationBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000223 /* WristAssistComplicationBundle.swift */; };
+		000000000000000000000123 /* NadgarComplicationBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000223 /* NadgarComplicationBundle.swift */; };
 		000000000000000000000124 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000225 /* Assets.xcassets */; };
-		000000000000000000000125 /* WristAssist Watch Complication Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000304 /* WristAssist Watch Complication Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		000000000000000000000125 /* Nadgar Watch Complication Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 000000000000000000000304 /* Nadgar Watch Complication Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		000000000000000000000126 /* OpenAISpeechClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000226 /* OpenAISpeechClient.swift */; };
 /* End PBXBuildFile section */
 
@@ -38,14 +38,14 @@
 			containerPortal = 000000000000000000000001 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 000000000000000000000012;
-			remoteInfo = "WristAssist Watch App";
+			remoteInfo = "Nadgar Watch App";
 		};
 		000000000000000000000503 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 000000000000000000000001 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 000000000000000000000013;
-			remoteInfo = "WristAssist Watch Complication Extension";
+			remoteInfo = "Nadgar Watch Complication Extension";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -56,7 +56,7 @@
 			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
 			dstSubfolderSpec = 16;
 			files = (
-				000000000000000000000109 /* WristAssist Watch App.app in Embed Watch Content */,
+				000000000000000000000109 /* Nadgar Watch App.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -67,7 +67,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				000000000000000000000125 /* WristAssist Watch Complication Extension.appex in Embed App Extensions */,
+				000000000000000000000125 /* Nadgar Watch Complication Extension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -75,14 +75,14 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		000000000000000000000201 /* WristAssistApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WristAssistApp.swift; sourceTree = "<group>"; };
+		000000000000000000000201 /* NadgarApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NadgarApp.swift; sourceTree = "<group>"; };
 		000000000000000000000202 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		000000000000000000000203 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		000000000000000000000204 /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
 		000000000000000000000205 /* OpenAIAPIKeyValidationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIAPIKeyValidationService.swift; sourceTree = "<group>"; };
 		000000000000000000000207 /* PhoneConnectivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneConnectivityController.swift; sourceTree = "<group>"; };
 		000000000000000000000208 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		000000000000000000000211 /* WristAssistWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WristAssistWatchApp.swift; sourceTree = "<group>"; };
+		000000000000000000000211 /* NadgarWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NadgarWatchApp.swift; sourceTree = "<group>"; };
 		000000000000000000000212 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
 		000000000000000000000213 /* WatchVoiceViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchVoiceViewModel.swift; sourceTree = "<group>"; };
 		000000000000000000000214 /* WatchConnectivityClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityClient.swift; sourceTree = "<group>"; };
@@ -93,14 +93,14 @@
 		000000000000000000000220 /* OpenAIResponsesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIResponsesClient.swift; sourceTree = "<group>"; };
 		000000000000000000000221 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		000000000000000000000222 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		000000000000000000000223 /* WristAssistComplicationBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WristAssistComplicationBundle.swift; sourceTree = "<group>"; };
+		000000000000000000000223 /* NadgarComplicationBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NadgarComplicationBundle.swift; sourceTree = "<group>"; };
 		000000000000000000000224 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		000000000000000000000225 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		000000000000000000000226 /* OpenAISpeechClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAISpeechClient.swift; sourceTree = "<group>"; };
-		000000000000000000000301 /* WristAssist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WristAssist.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		000000000000000000000302 /* WristAssist Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WristAssist Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000301 /* Nadgar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nadgar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000302 /* Nadgar Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Nadgar Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000303 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = text; path = Package.swift; sourceTree = "<group>"; };
-		000000000000000000000304 /* WristAssist Watch Complication Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "WristAssist Watch Complication Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000304 /* Nadgar Watch Complication Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Nadgar Watch Complication Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,7 +108,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000108 /* WristAssistShared in Frameworks */,
+				000000000000000000000108 /* NadgarShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -116,7 +116,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000117 /* WristAssistShared in Frameworks */,
+				000000000000000000000117 /* NadgarShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,9 +152,9 @@
 		000000000000000000000803 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000301 /* WristAssist.app */,
-				000000000000000000000302 /* WristAssist Watch App.app */,
-				000000000000000000000304 /* WristAssist Watch Complication Extension.appex */,
+				000000000000000000000301 /* Nadgar.app */,
+				000000000000000000000302 /* Nadgar Watch App.app */,
+				000000000000000000000304 /* Nadgar Watch Complication Extension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -162,7 +162,7 @@
 		000000000000000000000804 /* iOS */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000201 /* WristAssistApp.swift */,
+				000000000000000000000201 /* NadgarApp.swift */,
 				000000000000000000000202 /* ContentView.swift */,
 				000000000000000000000203 /* SettingsViewModel.swift */,
 				000000000000000000000204 /* KeychainCredentialStore.swift */,
@@ -177,7 +177,7 @@
 		000000000000000000000805 /* Watch */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000211 /* WristAssistWatchApp.swift */,
+				000000000000000000000211 /* NadgarWatchApp.swift */,
 				000000000000000000000212 /* WatchContentView.swift */,
 				000000000000000000000213 /* WatchVoiceViewModel.swift */,
 				000000000000000000000214 /* WatchConnectivityClient.swift */,
@@ -195,7 +195,7 @@
 		000000000000000000000806 /* WatchComplication */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000223 /* WristAssistComplicationBundle.swift */,
+				000000000000000000000223 /* NadgarComplicationBundle.swift */,
 				000000000000000000000224 /* Info.plist */,
 				000000000000000000000225 /* Assets.xcassets */,
 			);
@@ -205,9 +205,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		000000000000000000000011 /* WristAssist iOS */ = {
+		000000000000000000000011 /* Nadgar iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 000000000000000000000901 /* Build configuration list for PBXNativeTarget "WristAssist iOS" */;
+			buildConfigurationList = 000000000000000000000901 /* Build configuration list for PBXNativeTarget "Nadgar iOS" */;
 			buildPhases = (
 				000000000000000000000711 /* Sources */,
 				000000000000000000000701 /* Frameworks */,
@@ -219,17 +219,17 @@
 			dependencies = (
 				000000000000000000000502 /* PBXTargetDependency */,
 			);
-			name = "WristAssist iOS";
+			name = "Nadgar iOS";
 			packageProductDependencies = (
-				000000000000000000000401 /* WristAssistShared */,
+				000000000000000000000401 /* NadgarShared */,
 			);
-			productName = WristAssist;
-			productReference = 000000000000000000000301 /* WristAssist.app */;
+			productName = Nadgar;
+			productReference = 000000000000000000000301 /* Nadgar.app */;
 			productType = "com.apple.product-type.application";
 		};
-		000000000000000000000012 /* WristAssist Watch App */ = {
+		000000000000000000000012 /* Nadgar Watch App */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 000000000000000000000902 /* Build configuration list for PBXNativeTarget "WristAssist Watch App" */;
+			buildConfigurationList = 000000000000000000000902 /* Build configuration list for PBXNativeTarget "Nadgar Watch App" */;
 			buildPhases = (
 				000000000000000000000712 /* Sources */,
 				000000000000000000000702 /* Frameworks */,
@@ -241,17 +241,17 @@
 			dependencies = (
 				000000000000000000000504 /* PBXTargetDependency */,
 			);
-			name = "WristAssist Watch App";
+			name = "Nadgar Watch App";
 			packageProductDependencies = (
-				000000000000000000000401 /* WristAssistShared */,
+				000000000000000000000401 /* NadgarShared */,
 			);
-			productName = "WristAssist Watch App";
-			productReference = 000000000000000000000302 /* WristAssist Watch App.app */;
+			productName = "Nadgar Watch App";
+			productReference = 000000000000000000000302 /* Nadgar Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
-		000000000000000000000013 /* WristAssist Watch Complication Extension */ = {
+		000000000000000000000013 /* Nadgar Watch Complication Extension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 000000000000000000000903 /* Build configuration list for PBXNativeTarget "WristAssist Watch Complication Extension" */;
+			buildConfigurationList = 000000000000000000000903 /* Build configuration list for PBXNativeTarget "Nadgar Watch Complication Extension" */;
 			buildPhases = (
 				000000000000000000000713 /* Sources */,
 				000000000000000000000703 /* Frameworks */,
@@ -261,11 +261,11 @@
 			);
 			dependencies = (
 			);
-			name = "WristAssist Watch Complication Extension";
+			name = "Nadgar Watch Complication Extension";
 			packageProductDependencies = (
 			);
-			productName = "WristAssist Watch Complication Extension";
-			productReference = 000000000000000000000304 /* WristAssist Watch Complication Extension.appex */;
+			productName = "Nadgar Watch Complication Extension";
+			productReference = 000000000000000000000304 /* Nadgar Watch Complication Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -289,7 +289,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 000000000000000000000900 /* Build configuration list for PBXProject "WristAssist" */;
+			buildConfigurationList = 000000000000000000000900 /* Build configuration list for PBXProject "Nadgar" */;
 			compatibilityVersion = "Xcode 15.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -305,9 +305,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				000000000000000000000011 /* WristAssist iOS */,
-				000000000000000000000012 /* WristAssist Watch App */,
-				000000000000000000000013 /* WristAssist Watch Complication Extension */,
+				000000000000000000000011 /* Nadgar iOS */,
+				000000000000000000000012 /* Nadgar Watch App */,
+				000000000000000000000013 /* Nadgar Watch Complication Extension */,
 			);
 		};
 /* End PBXProject section */
@@ -344,7 +344,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000101 /* WristAssistApp.swift in Sources */,
+				000000000000000000000101 /* NadgarApp.swift in Sources */,
 				000000000000000000000102 /* ContentView.swift in Sources */,
 				000000000000000000000103 /* SettingsViewModel.swift in Sources */,
 				000000000000000000000104 /* KeychainCredentialStore.swift in Sources */,
@@ -357,7 +357,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000111 /* WristAssistWatchApp.swift in Sources */,
+				000000000000000000000111 /* NadgarWatchApp.swift in Sources */,
 				000000000000000000000112 /* WatchContentView.swift in Sources */,
 				000000000000000000000113 /* WatchVoiceViewModel.swift in Sources */,
 				000000000000000000000114 /* WatchConnectivityClient.swift in Sources */,
@@ -373,7 +373,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				000000000000000000000123 /* WristAssistComplicationBundle.swift in Sources */,
+				000000000000000000000123 /* NadgarComplicationBundle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -382,12 +382,12 @@
 /* Begin PBXTargetDependency section */
 		000000000000000000000502 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 000000000000000000000012 /* WristAssist Watch App */;
+			target = 000000000000000000000012 /* Nadgar Watch App */;
 			targetProxy = 000000000000000000000501 /* PBXContainerItemProxy */;
 		};
 		000000000000000000000504 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 000000000000000000000013 /* WristAssist Watch Complication Extension */;
+			target = 000000000000000000000013 /* Nadgar Watch Complication Extension */;
 			targetProxy = 000000000000000000000503 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -523,8 +523,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist;
-				PRODUCT_NAME = WristAssist;
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar;
+				PRODUCT_NAME = Nadgar;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -549,8 +549,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist;
-				PRODUCT_NAME = WristAssist;
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar;
+				PRODUCT_NAME = Nadgar;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -574,8 +574,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist.watchkitapp;
-				PRODUCT_NAME = "WristAssist Watch App";
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar.watchkitapp;
+				PRODUCT_NAME = "Nadgar Watch App";
 				SDKROOT = watchos;
 				SUPPORTED_PLATFORMS = "watchos watchsimulator";
 				SWIFT_VERSION = 5.0;
@@ -599,8 +599,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist.watchkitapp;
-				PRODUCT_NAME = "WristAssist Watch App";
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar.watchkitapp;
+				PRODUCT_NAME = "Nadgar Watch App";
 				SDKROOT = watchos;
 				SUPPORTED_PLATFORMS = "watchos watchsimulator";
 				SWIFT_VERSION = 5.0;
@@ -625,7 +625,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist.watchkitapp.complication;
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar.watchkitapp.complication;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -652,7 +652,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = net.kwojt.WristAssist.watchkitapp.complication;
+				PRODUCT_BUNDLE_IDENTIFIER = app.nadgar.Nadgar.watchkitapp.complication;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -666,7 +666,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		000000000000000000000900 /* Build configuration list for PBXProject "WristAssist" */ = {
+		000000000000000000000900 /* Build configuration list for PBXProject "Nadgar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				000000000000000000000911 /* Debug */,
@@ -675,7 +675,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		000000000000000000000901 /* Build configuration list for PBXNativeTarget "WristAssist iOS" */ = {
+		000000000000000000000901 /* Build configuration list for PBXNativeTarget "Nadgar iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				000000000000000000000913 /* Debug */,
@@ -684,7 +684,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		000000000000000000000902 /* Build configuration list for PBXNativeTarget "WristAssist Watch App" */ = {
+		000000000000000000000902 /* Build configuration list for PBXNativeTarget "Nadgar Watch App" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				000000000000000000000915 /* Debug */,
@@ -693,7 +693,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		000000000000000000000903 /* Build configuration list for PBXNativeTarget "WristAssist Watch Complication Extension" */ = {
+		000000000000000000000903 /* Build configuration list for PBXNativeTarget "Nadgar Watch Complication Extension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				000000000000000000000917 /* Debug */,
@@ -712,10 +712,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		000000000000000000000401 /* WristAssistShared */ = {
+		000000000000000000000401 /* NadgarShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 000000000000000000000400 /* XCLocalSwiftPackageReference "." */;
-			productName = WristAssistShared;
+			productName = NadgarShared;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

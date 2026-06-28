@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct WAVAudioFileBuilderTests {
     @Test func wavDataBuildsPCM16MonoHeaderAndPayload() throws {

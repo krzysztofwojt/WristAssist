@@ -1,5 +1,5 @@
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct PCM16AudioConverterTests {
     @Test func float32ToPCM16UsesLittleEndianClippedSamples() {

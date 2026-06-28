@@ -1,5 +1,5 @@
 import Foundation
-import WristAssistShared
+import NadgarShared
 
 protocol OpenAIAPIKeyValidating: Sendable {
     func validateAPIKey(apiKey: String, model: String) async throws

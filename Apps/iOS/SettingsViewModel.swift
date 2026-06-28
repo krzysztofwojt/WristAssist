@@ -1,5 +1,5 @@
 import Foundation
-import WristAssistShared
+import NadgarShared
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -185,7 +185,7 @@ final class SettingsViewModel: ObservableObject {
         pendingWatchKeyDeletion = true
 
         guard connectivity?.sendDeleteAPIKeyToWatch() == true else {
-            watchStatus = "API key deleted locally. Open WristAssist on Apple Watch to finish deleting it there."
+            watchStatus = "API key deleted locally. Open Nadgar on Apple Watch to finish deleting it there."
             return
         }
     }
@@ -331,7 +331,7 @@ final class SettingsViewModel: ObservableObject {
 
     private func syncAPIKeyToWatch(_ apiKey: String) {
         guard connectivity?.syncAPIKeyToWatch(apiKey) == true else {
-            watchStatus = "API key saved on iPhone. Open WristAssist on Apple Watch to sync."
+            watchStatus = "API key saved on iPhone. Open Nadgar on Apple Watch to sync."
             return
         }
     }
@@ -345,7 +345,7 @@ final class SettingsViewModel: ObservableObject {
         guard pendingWatchKeyDeletion else { return }
 
         guard !hasKey else {
-            watchStatus = "Open WristAssist on Apple Watch to finish deleting the key there."
+            watchStatus = "Open Nadgar on Apple Watch to finish deleting the key there."
             lastError = nil
             return
         }
@@ -357,7 +357,7 @@ final class SettingsViewModel: ObservableObject {
 
     private func applyWatchStatus(_ status: String) {
         if pendingWatchKeyDeletion && status == "Watch: API key synced" {
-            watchStatus = "Open WristAssist on Apple Watch to finish deleting the key there."
+            watchStatus = "Open Nadgar on Apple Watch to finish deleting the key there."
             lastError = nil
             return
         }

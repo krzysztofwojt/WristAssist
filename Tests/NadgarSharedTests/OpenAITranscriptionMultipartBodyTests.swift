@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct OpenAITranscriptionMultipartBodyTests {
     @Test func multipartBodyIncludesModelAndAudioWAVFilePart() throws {

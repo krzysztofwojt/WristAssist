@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct WatchConnectivityMessagesTests {
     @Test func phoneConfigurationRoundTripsWithoutAPIKeyPayload() throws {

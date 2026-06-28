@@ -1,19 +1,19 @@
 import AVFoundation
 import Foundation
 import os
-import WristAssistShared
+import NadgarShared
 
 final class WatchAudioPipeline {
     private static let playbackPrerollMilliseconds = 180
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.nadgar.Nadgar.watchkitapp",
         category: "WatchAudioPipeline"
     )
 
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let outputFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 24_000, channels: 1, interleaved: false)!
-    private let playbackQueue = DispatchQueue(label: "com.kwojt.WristAssist.watch.output-playback")
+    private let playbackQueue = DispatchQueue(label: "app.nadgar.Nadgar.watch.output-playback")
     private var pendingOutputBuffers = 0
     private var playedOutputFrames = 0
     private var playbackGeneration = 0

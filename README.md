@@ -1,6 +1,6 @@
-# WristAssist
+# Nadgar
 
-WristAssist is a native SwiftUI iPhone + Apple Watch MVP for push-to-talk text chat with OpenAI from Apple Watch.
+Nadgar is a native SwiftUI iPhone + Apple Watch MVP for push-to-talk text chat with OpenAI from Apple Watch.
 
 ## What Is Implemented
 
@@ -38,7 +38,7 @@ Validate plist and project syntax:
 ```sh
 plutil -lint Apps/iOS/Info.plist
 plutil -lint Apps/Watch/Info.plist
-plutil -lint WristAssist.xcodeproj/project.pbxproj
+plutil -lint Nadgar.xcodeproj/project.pbxproj
 ```
 
 Run the shared smoke test:
@@ -46,46 +46,46 @@ Run the shared smoke test:
 ```sh
 env SWIFTPM_HOME="$PWD/.build/spm-home" \
   CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-module-cache" \
-  swift run --scratch-path "$PWD/.build" WristAssistSharedSmokeTests
+  swift run --scratch-path "$PWD/.build" NadgarSharedSmokeTests
 ```
 
 After installing full Xcode:
 
 ```sh
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-xcodebuild -list -project WristAssist.xcodeproj
+xcodebuild -list -project Nadgar.xcodeproj
 swift test --scratch-path "$PWD/.build"
 ```
 
-Then open `WristAssist.xcodeproj`, set your development team, and build the iOS app with the embedded Watch app.
+Then open `Nadgar.xcodeproj`, set your development team, and build the iOS app with the embedded Watch app.
 
 Current MVP builds the iOS and watchOS schemes separately:
 
 ```sh
-xcodebuild -project WristAssist.xcodeproj -scheme "WristAssist iOS" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project WristAssist.xcodeproj -scheme "WristAssist Watch App" -destination "generic/platform=watchOS" CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project Nadgar.xcodeproj -scheme "Nadgar iOS" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project Nadgar.xcodeproj -scheme "Nadgar Watch App" -destination "generic/platform=watchOS" CODE_SIGNING_ALLOWED=NO build
 ```
 
 The watchOS target is a standalone SwiftUI watchOS app linked to the iPhone app by bundle identifiers and WatchConnectivity. App Store-style embedding can be added later by introducing a WatchKit Extension wrapper target.
 
 ### Mock OpenAI Watch Run
 
-For local Watch UI testing without spending OpenAI tokens, run the `WristAssist Watch App` scheme in Debug with either:
+For local Watch UI testing without spending OpenAI tokens, run the `Nadgar Watch App` scheme in Debug with either:
 
-- launch argument `-WristAssistMockOpenAI`
-- environment variable `WRISTASSIST_MOCK_OPENAI=1`
+- launch argument `-NadgarMockOpenAI`
+- environment variable `NADGAR_MOCK_OPENAI=1`
 
 This mode still records through the microphone and writes the temporary WAV file, but it skips the transcription and Responses network requests. The Watch treats the API key as present and appends deterministic mock user and assistant chat bubbles after short simulated delays. The flag is ignored in Release builds.
 
-For Simulator-only citation rendering checks, run the shared `WristAssist Watch Mock Citations` scheme. It enables mock OpenAI plus `-WristAssistMockCitationChat`, so the Watch starts with a seeded assistant bubble containing bold, italic, inline code, markdown links, and `url_citation` ranges. The same citation-rich mock response is used for subsequent mock PTT turns. You can also enable this fixture manually with:
+For Simulator-only citation rendering checks, run the shared `Nadgar Watch Mock Citations` scheme. It enables mock OpenAI plus `-NadgarMockCitationChat`, so the Watch starts with a seeded assistant bubble containing bold, italic, inline code, markdown links, and `url_citation` ranges. The same citation-rich mock response is used for subsequent mock PTT turns. You can also enable this fixture manually with:
 
-- launch argument `-WristAssistMockCitationChat`
-- environment variable `WRISTASSIST_MOCK_CITATION_CHAT=1`
+- launch argument `-NadgarMockCitationChat`
+- environment variable `NADGAR_MOCK_CITATION_CHAT=1`
 
 ## Manual MVP Checklist
 
 - Launch iPhone app and save an OpenAI API key.
-- Confirm Watch app changes from "Open WristAssist on your iPhone and save API key." to the black chat screen with the green microphone after settings sync.
+- Confirm Watch app changes from "Open Nadgar on your iPhone and save API key." to the black chat screen with the green microphone after settings sync.
 - Quit the iPhone app and confirm the Watch still shows the ready state from its local Keychain copy.
 - Clear the API key on iPhone and confirm the Watch clears its local copy and returns to the missing-key message.
 - Hold the Watch microphone, allow microphone access, speak, release, and confirm the transcript plus assistant text bubbles appear.
@@ -96,6 +96,6 @@ For Simulator-only citation rendering checks, run the shared `WristAssist Watch 
 
 - `Apps/iOS`: iPhone SwiftUI app, Keychain, API-key validation, WatchConnectivity host.
 - `Apps/Watch`: Watch SwiftUI app, push-to-talk recorder, transcription client, Responses client, chat view model.
-- `Sources/WristAssistShared`: shared settings, messages, OpenAI request models, WAV/PCM16 helpers, and legacy Realtime event models.
-- `Tests/WristAssistSharedTests`: shared contract tests for full Xcode/Swift test environments.
-- `Tools/WristAssistSharedSmokeTests`: small executable smoke test that avoids XCTest/Testing.
+- `Sources/NadgarShared`: shared settings, messages, OpenAI request models, WAV/PCM16 helpers, and legacy Realtime event models.
+- `Tests/NadgarSharedTests`: shared contract tests for full Xcode/Swift test environments.
+- `Tools/NadgarSharedSmokeTests`: small executable smoke test that avoids XCTest/Testing.

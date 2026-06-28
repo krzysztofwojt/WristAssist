@@ -2,25 +2,25 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct WristAssistComplicationBundle: WidgetBundle {
+struct NadgarComplicationBundle: WidgetBundle {
     var body: some Widget {
-        WristAssistComplication()
+        NadgarComplication()
     }
 }
 
-struct WristAssistComplication: Widget {
-    private let kind = "WristAssistComplication"
+struct NadgarComplication: Widget {
+    private let kind = "NadgarComplication"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: WristAssistComplicationProvider()) { entry in
-            WristAssistComplicationView(entry: entry)
+        StaticConfiguration(kind: kind, provider: NadgarComplicationProvider()) { entry in
+            NadgarComplicationView(entry: entry)
                 .containerBackground(for: .widget) {
                     Color.clear
                 }
-                .widgetURL(URL(string: "wristassist://open"))
+                .widgetURL(URL(string: "nadgar://open"))
         }
-        .configurationDisplayName("WristAssist")
-        .description("Open WristAssist from your watch face.")
+        .configurationDisplayName("Nadgar")
+        .description("Open Nadgar from your watch face.")
         .supportedFamilies([
             .accessoryCircular,
             .accessoryCorner,
@@ -30,32 +30,32 @@ struct WristAssistComplication: Widget {
     }
 }
 
-private struct WristAssistComplicationEntry: TimelineEntry {
+private struct NadgarComplicationEntry: TimelineEntry {
     let date: Date
 }
 
-private struct WristAssistComplicationProvider: TimelineProvider {
-    func placeholder(in context: Context) -> WristAssistComplicationEntry {
-        WristAssistComplicationEntry(date: Date())
+private struct NadgarComplicationProvider: TimelineProvider {
+    func placeholder(in context: Context) -> NadgarComplicationEntry {
+        NadgarComplicationEntry(date: Date())
     }
 
     func getSnapshot(
         in context: Context,
-        completion: @escaping (WristAssistComplicationEntry) -> Void
+        completion: @escaping (NadgarComplicationEntry) -> Void
     ) {
-        completion(WristAssistComplicationEntry(date: Date()))
+        completion(NadgarComplicationEntry(date: Date()))
     }
 
     func getTimeline(
         in context: Context,
-        completion: @escaping (Timeline<WristAssistComplicationEntry>) -> Void
+        completion: @escaping (Timeline<NadgarComplicationEntry>) -> Void
     ) {
-        completion(Timeline(entries: [WristAssistComplicationEntry(date: Date())], policy: .never))
+        completion(Timeline(entries: [NadgarComplicationEntry(date: Date())], policy: .never))
     }
 }
 
-private struct WristAssistComplicationView: View {
-    let entry: WristAssistComplicationEntry
+private struct NadgarComplicationView: View {
+    let entry: NadgarComplicationEntry
 
     @Environment(\.widgetFamily) private var family
 
@@ -67,7 +67,7 @@ private struct WristAssistComplicationView: View {
                     .frame(width: 20, height: 20)
                     .accessibilityHidden(true)
 
-                Text("WristAssist")
+                Text("Nadgar")
                     .font(.headline)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -75,35 +75,35 @@ private struct WristAssistComplicationView: View {
             .padding(.horizontal, 2)
 
         case .accessoryInline:
-            Text("WristAssist")
+            Text("Nadgar")
 
         case .accessoryCircular:
             icon
                 .frame(width: 30, height: 30)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("WristAssist")
+                .accessibilityLabel("Nadgar")
 
         case .accessoryCorner:
             icon
                 .frame(width: 28, height: 28)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("WristAssist")
+                .accessibilityLabel("Nadgar")
 
         default:
             icon
                 .frame(width: 30, height: 30)
-                .accessibilityLabel("WristAssist")
+                .accessibilityLabel("Nadgar")
         }
     }
 
     private var icon: some View {
-        WristAssistLogoMark()
+        NadgarLogoMark()
             .aspectRatio(1, contentMode: .fit)
             .widgetAccentable(false)
     }
 }
 
-private struct WristAssistLogoMark: View {
+private struct NadgarLogoMark: View {
     private static let viewBoxSize: CGFloat = 1024
     private static let sourceBounds = CGRect(x: 160, y: 160, width: 704, height: 704)
     private static let blue = Color(red: 0.0 / 255.0, green: 75.0 / 255.0, blue: 252.0 / 255.0)

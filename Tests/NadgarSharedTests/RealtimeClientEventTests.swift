@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct RealtimeClientEventTests {
     @Test func sessionUpdateEncodesMVPRealtimeConfiguration() throws {

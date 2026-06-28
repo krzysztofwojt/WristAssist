@@ -1,10 +1,10 @@
 import Foundation
 import Security
-import WristAssistShared
+import NadgarShared
 
 struct KeychainCredentialStore: APIKeyStore {
-    private let service = "com.kwojt.WristAssist.OpenAI"
-    private let legacyServices = ["com.kwojt.WristAssist.openai"]
+    private let service = "app.nadgar.Nadgar.OpenAI"
+    private let legacyServices: [String] = []
     private let account = "openai-api-key"
 
     func saveAPIKey(_ apiKey: String) throws {

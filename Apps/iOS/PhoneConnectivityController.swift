@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 import WatchConnectivity
-import WristAssistShared
+import NadgarShared
 
 final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     private let settingsProvider: @MainActor () -> ProviderSettings
@@ -73,7 +73,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     func syncAPIKeyToWatch(_ apiKey: String) -> Bool {
         sendMessageToReachableWatch(
             .syncAPIKey(apiKey),
-            unavailableStatus: "API key saved on iPhone. Open WristAssist on Apple Watch to sync."
+            unavailableStatus: "API key saved on iPhone. Open Nadgar on Apple Watch to sync."
         )
     }
 
@@ -81,7 +81,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     func sendDeleteAPIKeyToWatch() -> Bool {
         sendMessageToReachableWatch(
             .deleteAPIKey,
-            unavailableStatus: "Open WristAssist on Apple Watch to finish deleting the key there."
+            unavailableStatus: "Open Nadgar on Apple Watch to finish deleting the key there."
         )
     }
 
@@ -89,7 +89,7 @@ final class PhoneConnectivityController: NSObject, WCSessionDelegate {
     func sendMissingAPIKeyStatusToWatch() -> Bool {
         sendMessageToReachableWatch(
             .keyStatusResponse(hasKey: false),
-            unavailableStatus: "Open WristAssist on Apple Watch to refresh API key status."
+            unavailableStatus: "Open Nadgar on Apple Watch to refresh API key status."
         )
     }
 

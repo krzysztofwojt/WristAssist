@@ -1,6 +1,6 @@
 # OpenClaw-Style Conversation State
 
-This note records the intended conversation-state direction for WristAssist.
+This note records the intended conversation-state direction for Nadgar.
 The current app can start a fresh session on each launch, but the state model
 should stay compatible with a future single continuous conversation.
 
@@ -22,9 +22,9 @@ Long conversations are not treated as infinite prompt context. OpenClaw keeps
 transcripts and session metadata separately, and can compact older context into
 summaries when the active context grows too large.
 
-## WristAssist State Model
+## Nadgar State Model
 
-For WristAssist, keep the model simpler than OpenClaw while preserving the same
+For Nadgar, keep the model simpler than OpenClaw while preserving the same
 core separation:
 
 - `conversationKey = "default"`: stable key for the user's watch conversation.

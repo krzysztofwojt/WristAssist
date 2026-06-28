@@ -1,11 +1,11 @@
 import Foundation
 import os
-import WristAssistShared
+import NadgarShared
 
 struct OpenAISpeechClient {
     private static let streamChunkByteCount = 24_000
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.nadgar.Nadgar.watchkitapp",
         category: "OpenAISpeechClient"
     )
 

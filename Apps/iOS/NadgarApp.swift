@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct WristAssistApp: App {
+struct NadgarApp: App {
     @StateObject private var viewModel = SettingsViewModel()
 
     var body: some Scene {

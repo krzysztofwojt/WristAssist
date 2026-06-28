@@ -1,5 +1,5 @@
 import Testing
-@testable import WristAssistShared
+@testable import NadgarShared
 
 struct RealtimeServerEventTests {
     @Test func decodesSessionCreated() throws {

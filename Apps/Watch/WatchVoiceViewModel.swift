@@ -1,7 +1,7 @@
 import Foundation
 import os
 import Security
-import WristAssistShared
+import NadgarShared
 
 @MainActor
 final class WatchVoiceViewModel: ObservableObject {
@@ -13,7 +13,7 @@ final class WatchVoiceViewModel: ObservableObject {
     private static let recordingStartFailedPrefix = "Recording could not be started"
     private static let recordingStartFailedText = "\(recordingStartFailedPrefix)."
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.nadgar.Nadgar.watchkitapp",
         category: "WatchVoiceViewModel"
     )
 
@@ -992,7 +992,7 @@ struct WatchOpenAITestMode: Equatable {
     var seedsCitationChat: Bool = false
 
     var apiKeyOverride: String? {
-        isEnabled ? "__wristassist_mock_openai__" : nil
+        isEnabled ? "__nadgar_mock_openai__" : nil
     }
 
     static let disabled = WatchOpenAITestMode(isEnabled: false)
@@ -1000,20 +1000,20 @@ struct WatchOpenAITestMode: Equatable {
     static var current: WatchOpenAITestMode {
         #if DEBUG
         let processInfo = ProcessInfo.processInfo
-        let isLaunchArgumentEnabled = processInfo.arguments.contains("-WristAssistMockOpenAI")
-        let isSeedChatLaunchArgumentEnabled = processInfo.arguments.contains("-WristAssistMockCitationChat")
-        let environmentValue = processInfo.environment["WRISTASSIST_MOCK_OPENAI"]?
+        let isLaunchArgumentEnabled = processInfo.arguments.contains("-NadgarMockOpenAI")
+        let isSeedChatLaunchArgumentEnabled = processInfo.arguments.contains("-NadgarMockCitationChat")
+        let environmentValue = processInfo.environment["NADGAR_MOCK_OPENAI"]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
-        let seedChatEnvironmentValue = processInfo.environment["WRISTASSIST_MOCK_CITATION_CHAT"]?
+        let seedChatEnvironmentValue = processInfo.environment["NADGAR_MOCK_CITATION_CHAT"]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         let isEnvironmentEnabled = ["1", "true", "yes", "on"].contains(environmentValue ?? "")
         let transcriptionFailuresBeforeSuccess = max(
             0,
-            integerArgument(named: "-WristAssistMockTranscriptionFailures", in: processInfo.arguments) ??
+            integerArgument(named: "-NadgarMockTranscriptionFailures", in: processInfo.arguments) ??
                 integerEnvironmentValue(
-                    named: "WRISTASSIST_MOCK_TRANSCRIPTION_FAILURES",
+                    named: "NADGAR_MOCK_TRANSCRIPTION_FAILURES",
                     in: processInfo.environment
                 ) ??
                 0
@@ -1191,8 +1191,8 @@ struct WatchConfigurationStore {
 }
 
 private struct WatchAPIKeyStore: APIKeyStore {
-    private let service = "com.kwojt.WristAssist.OpenAI"
-    private let legacyServices = ["com.kwojt.WristAssist.watch.openai"]
+    private let service = "app.nadgar.Nadgar.OpenAI"
+    private let legacyServices: [String] = []
     private let account = "openai-api-key"
 
     func saveAPIKey(_ apiKey: String) throws {

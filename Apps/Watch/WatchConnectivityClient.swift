@@ -1,6 +1,6 @@
 import Foundation
 import WatchConnectivity
-import WristAssistShared
+import NadgarShared
 
 final class WatchConnectivityClient: NSObject, WCSessionDelegate {
     var onConfigurationChanged: (@MainActor (WatchConfiguration) -> Void)?
@@ -273,7 +273,7 @@ enum WatchConnectivityClientError: LocalizedError, Equatable {
         case .notActivated:
             return "Connection to iPhone is not active yet."
         case .phoneUnreachable:
-            return "Open WristAssist on iPhone and keep it nearby."
+            return "Open Nadgar on iPhone and keep it nearby."
         case .unexpectedReply:
             return "iPhone returned an unexpected message."
         case .remote(let message):

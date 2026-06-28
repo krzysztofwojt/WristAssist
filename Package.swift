@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "WristAssist",
+    name: "Nadgar",
     platforms: [
         .iOS(.v18),
         .watchOS(.v11),
@@ -11,28 +11,28 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "WristAssistShared",
-            targets: ["WristAssistShared"]
+            name: "NadgarShared",
+            targets: ["NadgarShared"]
         ),
         .executable(
-            name: "WristAssistSharedSmokeTests",
-            targets: ["WristAssistSharedSmokeTests"]
+            name: "NadgarSharedSmokeTests",
+            targets: ["NadgarSharedSmokeTests"]
         )
     ],
     targets: [
         .target(
-            name: "WristAssistShared",
-            path: "Sources/WristAssistShared"
+            name: "NadgarShared",
+            path: "Sources/NadgarShared"
         ),
         .testTarget(
-            name: "WristAssistSharedTests",
-            dependencies: ["WristAssistShared"],
-            path: "Tests/WristAssistSharedTests"
+            name: "NadgarSharedTests",
+            dependencies: ["NadgarShared"],
+            path: "Tests/NadgarSharedTests"
         ),
         .executableTarget(
-            name: "WristAssistSharedSmokeTests",
-            dependencies: ["WristAssistShared"],
-            path: "Tools/WristAssistSharedSmokeTests"
+            name: "NadgarSharedSmokeTests",
+            dependencies: ["NadgarShared"],
+            path: "Tools/NadgarSharedSmokeTests"
         )
     ]
 )

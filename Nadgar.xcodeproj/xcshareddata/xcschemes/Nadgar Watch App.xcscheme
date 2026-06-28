@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "000000000000000000000012"
-               BuildableName = "WristAssist Watch App.app"
-               BlueprintName = "WristAssist Watch App"
-               ReferencedContainer = "container:WristAssist.xcodeproj">
+               BuildableName = "Nadgar Watch App.app"
+               BlueprintName = "Nadgar Watch App"
+               ReferencedContainer = "container:Nadgar.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,9 +46,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "000000000000000000000012"
-            BuildableName = "WristAssist Watch App.app"
-            BlueprintName = "WristAssist Watch App"
-            ReferencedContainer = "container:WristAssist.xcodeproj">
+            BuildableName = "Nadgar Watch App.app"
+            BlueprintName = "Nadgar Watch App"
+            ReferencedContainer = "container:Nadgar.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,9 +63,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "000000000000000000000012"
-            BuildableName = "WristAssist Watch App.app"
-            BlueprintName = "WristAssist Watch App"
-            ReferencedContainer = "container:WristAssist.xcodeproj">
+            BuildableName = "Nadgar Watch App.app"
+            BlueprintName = "Nadgar Watch App"
+            ReferencedContainer = "container:Nadgar.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

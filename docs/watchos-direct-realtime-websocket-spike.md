@@ -2,14 +2,14 @@
 
 Date: 2026-06-22
 
-This note records the result of the WristAssist experiment that tested whether
+This note records the result of the Nadgar experiment that tested whether
 the Apple Watch app can connect directly to the OpenAI Realtime API over a
 WebSocket after starting a real watchOS audio session.
 
 ## Goal
 
 Determine whether `URLSessionWebSocketTask` can be used directly from the
-watchOS app when WristAssist is actively using audio for its real product flow:
+watchOS app when Nadgar is actively using audio for its real product flow:
 
 1. Capture microphone input on Apple Watch.
 2. Stream audio to an AI model.
@@ -24,7 +24,7 @@ and a few other cases.
 The spike was implemented in an isolated worktree on branch:
 
 ```text
-wristassist/direct-realtime-audio-session-spike
+nadgar/direct-realtime-audio-session-spike
 ```
 
 The main changes were:
@@ -121,11 +121,11 @@ not reproduce the physical watch networking policy behavior.
 ## Conclusion
 
 Direct watchOS-to-OpenAI Realtime WebSocket is not a viable production
-architecture for WristAssist based on this experiment.
+architecture for Nadgar based on this experiment.
 
 High-confidence findings:
 
-- WristAssist can start a real watchOS audio session before the WebSocket.
+- Nadgar can start a real watchOS audio session before the WebSocket.
 - The physical watch can run an audio engine and deliver input buffers before
   the WebSocket attempt.
 - Adding `.avStreaming` to both `URLSessionConfiguration` and `URLRequest` did

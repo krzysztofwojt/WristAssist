@@ -87,7 +87,7 @@ public struct ProviderSettings: Codable, Equatable, Sendable {
     public static let defaultTranscriptionModel = StandalonePTTDefaults.transcriptionModel
     public static let defaultTTSModel = StandalonePTTDefaults.speechModel
     public static let defaultVoice = "marin"
-    public static let defaultInstructions = "You are WristAssist, a concise voice assistant on Apple Watch. Answer briefly unless the user asks for detail."
+    public static let defaultInstructions = "You are Nadgar, a concise voice assistant on Apple Watch. Answer briefly unless the user asks for detail."
 
     public static let supportedAssistantModels = [
         OpenAIModelOption(apiValue: "gpt-5.4-nano", displayName: "GPT-5.4 nano"),

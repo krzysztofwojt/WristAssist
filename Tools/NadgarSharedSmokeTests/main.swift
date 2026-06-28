@@ -1,12 +1,12 @@
 import Foundation
-import WristAssistShared
+import NadgarShared
 
 try testRealtimeSessionEncoding()
 try testMessageRoundTrip()
 try testServerEventDecoding()
 try testRichMockResponse()
 testPCM16Conversion()
-print("WristAssistShared smoke tests passed.")
+print("NadgarShared smoke tests passed.")
 
 private func testRealtimeSessionEncoding() throws {
     let settings = ProviderSettings(hasAPIKey: true)

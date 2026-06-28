@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 import os
-import WristAssistShared
+import NadgarShared
 
 struct WatchRecordedAudioFile: Sendable {
     var url: URL
@@ -10,9 +10,9 @@ struct WatchRecordedAudioFile: Sendable {
 
 @MainActor
 final class WatchPTTRecorder {
-    private static let temporaryFilePrefix = "wristassist-ptt-"
+    private static let temporaryFilePrefix = "nadgar-ptt-"
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "com.kwojt.WristAssist.watchkitapp",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.nadgar.Nadgar.watchkitapp",
         category: "WatchPTTRecorder"
     )
 
