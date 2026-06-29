@@ -158,7 +158,11 @@ private struct NadgarLogoMark: View {
                 .foregroundStyle(.white)
 
         default:
-            Self.stencilPath()
+            Self.bluePath()
+                .applying(transform)
+                .fill(.primary, style: FillStyle(eoFill: true))
+
+            Self.whiteWavePath()
                 .applying(transform)
                 .fill(.primary, style: FillStyle(eoFill: true))
 
@@ -172,12 +176,6 @@ private struct NadgarLogoMark: View {
             .stroke(lineWidth: 29.00 * scale)
             .frame(width: frame.width, height: frame.height)
             .position(x: frame.midX, y: frame.midY)
-    }
-
-    private static func stencilPath() -> Path {
-        var path = bluePath()
-        path.addPath(whiteWavePath())
-        return path
     }
 
     private static func bluePath() -> Path {
