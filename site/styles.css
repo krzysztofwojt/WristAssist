@@ -183,6 +183,8 @@ a:hover {
 }
 
 .feature-card {
+  --feature-icon-size: 46px;
+  --feature-title-offset: 64px;
   position: relative;
   min-height: 214px;
   padding: 24px 22px;
@@ -192,7 +194,10 @@ a:hover {
 }
 
 .feature-card h3 {
-  margin: 0 0 22px 64px;
+  min-height: var(--feature-icon-size);
+  display: flex;
+  align-items: center;
+  margin: 0 0 18px var(--feature-title-offset);
   font-size: clamp(1.24rem, 1.55vw, 1.58rem);
   line-height: 1.12;
 }
@@ -208,8 +213,8 @@ a:hover {
   position: absolute;
   left: 22px;
   top: 22px;
-  width: 46px;
-  height: 46px;
+  width: var(--feature-icon-size);
+  height: var(--feature-icon-size);
   border: 3px solid var(--ink);
   border-radius: 14px;
   padding: 7px;
@@ -503,14 +508,15 @@ a:hover {
   }
 
   .feature-card {
+    --feature-icon-size: 48px;
+    --feature-title-offset: 64px;
     padding: 22px 18px;
     border-width: 4px;
     border-radius: 26px;
   }
 
   .feature-card h3 {
-    margin-left: 64px;
-    margin-bottom: 24px;
+    margin-bottom: 18px;
   }
 
   .feature-card p {
@@ -520,8 +526,6 @@ a:hover {
   .feature-icon {
     left: 18px;
     top: 18px;
-    width: 48px;
-    height: 48px;
   }
 
   .footer-inner {
